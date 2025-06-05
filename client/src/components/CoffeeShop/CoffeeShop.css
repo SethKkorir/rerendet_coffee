@@ -1,0 +1,94 @@
+/* src/components/CoffeeShop/CoffeeShop.css */
+.coffee-shop {
+  background-color: var(--white);
+}
+
+.coffee-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 30px;
+  margin-top: 50px;
+}
+
+.coffee-card {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--box-shadow);
+  transition: var(--transition);
+}
+
+.coffee-card:hover {
+  transform: translateY(-10px);
+}
+
+.coffee-image {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+}
+
+.coffee-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.coffee-card:hover .coffee-image img {
+  transform: scale(1.1);
+}
+
+.coffee-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: var(--accent-color);
+  color: var(--white);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.coffee-info {
+  padding: 25px;
+}
+
+.coffee-title {
+  font-size: 1.3rem;
+  margin-bottom: 10px;
+}
+
+.coffee-description {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+  min-height: 40px;
+}
+
+.coffee-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.coffee-size {
+  background-color: var(--gray-200);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.coffee-price {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.add-to-cart {
+  width: 100%;
+}
