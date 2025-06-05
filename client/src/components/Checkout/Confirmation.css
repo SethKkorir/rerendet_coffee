@@ -1,0 +1,320 @@
+.confirmation-page {
+  min-height: 100vh;
+  background-color: #f8f5f2;
+}
+
+.confirmation-header {
+  padding: 1.5rem;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.confirmation-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #6F4E37;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.confirmation-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+.confirmation-card {
+  background: white;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.confirmation-icon {
+  font-size: 4rem;
+  color: #4CAF50;
+  margin-bottom: 1.5rem;
+}
+
+.confirmation-card h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.confirmation-message {
+  font-size: 1.1rem;
+  color: #555;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.confirmation-details {
+  background: #f9f9f9;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  text-align: left;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row.total {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 2px solid #eee;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background: #6F4E37;
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  background: #5a3c2a;
+}
+
+.btn-outline {
+  background: white;
+  color: #6F4E37;
+  border: 1px solid #6F4E37;
+}
+
+.btn-outline:hover {
+  background: #f9f7f4;
+}
+/* Animated checkmark */
+.animate-check {
+  position: relative;
+  animation: bounceIn 0.6s ease-out;
+}
+
+/* .confetti {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: url('/confetti.png') no-repeat center;
+  opacity: 0;
+  animation: confettiDrop 1s ease-out 0.3s;
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes confettiDrop {
+  0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(100px) rotate(360deg); }
+} */
+
+/* Progress tracker */
+.progress-tracker {
+  display: flex;
+  justify-content: space-between;
+  margin: 2rem 0;
+}
+
+.progress-step {
+  text-align: center;
+  flex: 1;
+  position: relative;
+}
+
+.progress-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  right: -50%;
+  height: 2px;
+  background: #ddd;
+  z-index: 1;
+}
+
+.progress-step.completed:not(:last-child)::after {
+  background: #6F4E37;
+}
+
+.step-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ddd;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.progress-step.completed .step-icon {
+  background: #6F4E37;
+}
+
+/* Time-sensitive offer */
+.upgrade-offer {
+  background: #FFF8E8;
+  border: 1px solid #FFE4B5;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  animation: pulse 2s infinite;
+}
+
+.offer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0.5rem;
+}
+
+.countdown {
+  background: #6F4E37;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* WhatsApp opt-in */
+.whatsapp-optin {
+  display: flex;
+  align-items: center;
+  background: #25D36610;
+  border: 1px solid #25D36630;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  gap: 1rem;
+}
+
+.whatsapp-icon {
+  color: #25D366;
+  font-size: 1.5rem;
+}
+
+/* Product recommendations */
+.recommendation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.product-card {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 1rem;
+  position: relative;
+}
+
+.product-tag {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #6F4E37;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+/* Social rewards */
+.share-buttons {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.share-buttons button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.reward-unlocked {
+  background: #E8F5E9;
+  color: #2E7D32;
+  padding: 0.5rem;
+  border-radius: 4px;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+/* Trust badges */
+.trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.badge {
+  flex: 1;
+  min-width: 120px;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .confirmation-actions {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+}

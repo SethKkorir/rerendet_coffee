@@ -1,0 +1,505 @@
+   <!-- Google Fonts <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <title>Rerendet Farm - Premium Specialty Coffee</title>
+    <link rel="stylesheet" href="/client/style.css">
+ 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+ 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+ 
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+
+    <div class="mobile-menu-toggle">
+        <i class="fas fa-bars"></i>
+    </div>
+    
+ 
+    <nav class="navbar">
+        <div class="container">
+            <a href="index.html" class="logo-container">
+                <img src="https://via.placeholder.com/120x50?text=Rerendet" alt="Rerendet Coffee Logo" class="logo-img">
+                <div class="logo">Rerendet Coffee</div>
+            </a>
+            <div class="nav-links">
+                <a href="#features" class="nav-link">Our Coffee</a>
+                <a href="#coffee-shop" class="nav-link">Shop</a>
+                <a href="blog.html" class="nav-link">Blog</a>
+                <a href="#about" class="nav-link">About</a>
+                <a href="#contact" class="nav-link">Contact</a>
+            </div>
+            <div class="user-dropdown">
+                <a href="#" class="user-icon" aria-haspopup="true" aria-expanded="false" aria-label="User menu">
+                  <i class="fa fa-user"></i>
+                </a>
+                <ul class="dropdown-menu" aria-label="User menu options">
+                  <li><a href="login.html"><i class="fa fa-sign-in-alt"></i> Login</a></li>
+                  <li><a href="signup.html"><i class="fa fa-user-plus"></i> Sign Up</a></li>
+                </ul>
+              </div>
+              
+            <div class="nav-actions">
+
+                <
+                <div class="cart-action" id="cart-toggle">
+                    <div class="cart-count" id="cart-count">0</div>
+                    <i class="fas fa-shopping-bag"></i>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="cart-sidebar">
+        <div class="cart-header">
+            <h2>Your Cart</h2>
+            <button id="close-cart" class="close-cart"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="cart-items" class="cart-items">
+         
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Total:</span>
+                <span id="cart-total-amount">KSh 0</span>
+            </div>
+            <div class="payment-methods">
+                <button id="checkout-mpesa" class="btn payment-btn mpesa-btn">
+                    <i class="fas fa-mobile-alt"></i> Pay with M-Pesa
+                </button>
+                <button id="checkout-card" class="btn payment-btn card-btn">
+                    <i class="fas fa-credit-card"></i> Pay with Card
+                </button>
+                <button id="checkout-paypal" class="btn payment-btn paypal-btn">
+                    <i class="fab fa-paypal"></i> PayPal
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="cart-overlay"></div>
+
+  
+    <section id="hero" class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="fade-in">Craft Coffee, Farm to Cup</h1>
+                <p class="fade-in">Experience the finest specialty coffee, sustainably grown at high altitude in the Southern Rift of Bomet, Kenya.</p>
+                <div class="cta-buttons fade-in">
+                    <a href="#coffee-shop" class="btn primary">Shop Now</a>
+                    <a href="#features" class="btn secondary">Learn More</a>
+                </div>
+            </div>
+            <div class="hero-carousel fade-in">
+                <div class="carousel-inner">
+                    <div class="carousel-item active">
+                        <img src="https://via.placeholder.com/500x400?text=Premium+Coffee" alt="Coffee Bag 1">
+                    </div>
+                    <div class="carousel-item">
+                        <img src="https://via.placeholder.com/500x400?text=Signature+Blend" alt="Coffee Bag 2">
+                    </div>
+                    <div class="carousel-item">
+                        <img src="https://via.placeholder.com/500x400?text=Organic+Beans" alt="Coffee Bag 3">
+                    </div>
+                </div>
+                <div class="carousel-controls">
+                    <button class="carousel-prev"><i class="fas fa-chevron-left"></i></button>
+                    <button class="carousel-next"><i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose Our Coffee</h2>
+            <p class="section-subtitle">Exceptional quality from seed to cup</p>
+            <div class="features-grid">
+                <div class="feature-card" data-aos="fade-up">
+                    <div class="icon"><i class="fas fa-mug-hot"></i></div>
+                    <h3>Year-Round Excellence</h3>
+                    <p>Like the evergreen Rerendet tree, our coffee is consistently fresh and flavorful throughout the seasons.</p>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="icon"><i class="fas fa-leaf"></i></div>
+                    <h3>Rich Volcanic Soils</h3>
+                    <p>Grown in nutrient-rich volcanic soil, our coffee boasts a deep, complex taste profile unlike any other.</p>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="icon"><i class="fas fa-mountain"></i></div>
+                    <h3>Ethically Sourced</h3>
+                    <p>We partner with local farmers to support sustainable farming practices and ensure fair compensation.</p>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="icon"><i class="fas fa-star"></i></div>
+                    <h3>Unique Flavor Profile</h3>
+                    <p>A zesty, rich brew with chocolate undertones and a bold, unforgettable finish that keeps you coming back.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="about">
+        <div class="container">
+            <div class="about-content">
+                <div class="about-text" data-aos="fade-right">
+                    <h2 class="section-title">Our Coffee Story</h2>
+                    <p>Founded in the highlands of Kenya, Rerendet Farm has been cultivating exceptional coffee for generations. Our name comes from the local Kalenjin word for the evergreen tree that provides shade for our coffee plants.</p>
+                    <p>At elevations of 1,800 meters above sea level, our beans develop slowly, allowing complex flavors to mature fully before harvest. Each batch is hand-picked, carefully processed, and roasted to perfection.</p>
+                    <div class="about-stats">
+                        <div class="stat">
+                            <span class="stat-number">25+</span>
+                            <span class="stat-label">Years of Experience</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">100%</span>
+                            <span class="stat-label">Organic Farming</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">3</span>
+                            <span class="stat-label">Award-Winning Blends</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="about-image" data-aos="fade-left">
+                    <img src="https://via.placeholder.com/600x400?text=Coffee+Farm" alt="Rerendet Coffee Farm">
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <section id="coffee-shop" class="coffee-shop">
+        <div class="container">
+            <h2 class="section-title">Shop Our Coffee</h2>
+            <p class="section-subtitle">Discover our premium coffee selection</p>
+            <div class="coffee-grid">
+          
+                <div class="coffee-card" data-aos="fade-up">
+                    <div class="coffee-image">
+                        <img src="https://via.placeholder.com/300x300?text=Premium+Blend" alt="Premium Coffee Blend">
+                        <div class="coffee-badge">Bestseller</div>
+                    </div>
+                    <div class="coffee-info">
+                        <h3 class="coffee-title">Premium Blend</h3>
+                        <p class="coffee-description">A medium roast with notes of chocolate and citrus.</p>
+                        <div class="coffee-meta">
+                            <span class="coffee-size">250g</span>
+                            <span class="coffee-price">KSh 950</span>
+                        </div>
+                        <button class="btn primary add-to-cart" data-id="1" data-name="Premium Blend" data-price="950">
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+                
+           
+                <div class="coffee-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="coffee-image">
+                        <img src="https://via.placeholder.com/300x300?text=Single+Origin" alt="Single Origin Coffee">
+                    </div>
+                    <div class="coffee-info">
+                        <h3 class="coffee-title">Single Origin</h3>
+                        <p class="coffee-description">Light roast with bright, fruity notes and a clean finish.</p>
+                        <div class="coffee-meta">
+                            <span class="coffee-size">250g</span>
+                            <span class="coffee-price">KSh 1200</span>
+                        </div>
+                        <button class="btn primary add-to-cart" data-id="2" data-name="Single Origin" data-price="1200">
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+                
+             
+                <div class="coffee-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="coffee-image">
+                        <img src="https://via.placeholder.com/300x300?text=Dark+Roast" alt="Dark Roast Coffee">
+                        <div class="coffee-badge">New</div>
+                    </div>
+                    <div class="coffee-info">
+                        <h3 class="coffee-title">Dark Roast</h3>
+                        <p class="coffee-description">Bold and rich with smoky undertones and a smooth finish.</p>
+                        <div class="coffee-meta">
+                            <span class="coffee-size">250g</span>
+                            <span class="coffee-price">KSh 1050</span>
+                        </div>
+                        <button class="btn primary add-to-cart" data-id="3" data-name="Dark Roast" data-price="1050">
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+                
+          
+                <div class="coffee-card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="coffee-image">
+                        <img src="https://via.placeholder.com/300x300?text=Espresso+Blend" alt="Espresso Blend">
+                    </div>
+                    <div class="coffee-info">
+                        <h3 class="coffee-title">Espresso Blend</h3>
+                        <p class="coffee-description">Perfect for espresso with caramel sweetness and nutty tones.</p>
+                        <div class="coffee-meta">
+                            <span class="coffee-size">250g</span>
+                            <span class="coffee-price">KSh 1100</span>
+                        </div>
+                        <button class="btn primary add-to-cart" data-id="4" data-name="Espresso Blend" data-price="1100">
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="testimonials">
+        <div class="container">
+            <h2 class="section-title">What Our Customers Say</h2>
+            <div class="testimonial-slider">
+                <div class="testimonial-slide">
+                    <div class="quote-icon"><i class="fas fa-quote-left"></i></div>
+                    <p class="testimonial-text">"I've tried coffee from all over the world, but Rerendet's beans are truly exceptional. The flavor profile is complex yet balanced, and I love knowing my purchase supports sustainable farming."</p>
+                    <div class="testimonial-author">
+                        <div class="author-info">
+                            <h4>Sarah Johnson</h4>
+                            <p>Coffee Enthusiast</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-slide">
+                    <div class="quote-icon"><i class="fas fa-quote-left"></i></div>
+                    <p class="testimonial-text">"As a cafe owner, I'm always looking for quality beans that my customers will love. Rerendet's coffee has become our signature blend, and people keep coming back for more."</p>
+                    <div class="testimonial-author">
+                        <div class="author-info">
+                            <h4>Michael Chang</h4>
+                            <p>Owner, Urban Brew Café</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-slide">
+                    <div class="quote-icon"><i class="fas fa-quote-left"></i></div>
+                    <p class="testimonial-text">"The commitment to sustainability and ethical farming practices at Rerendet Farm is just as impressive as the quality of their coffee. It's rare to find both in one package."</p>
+                    <div class="testimonial-author">
+                        <div class="author-info">
+                            <h4>Elena Rodriguez</h4>
+                            <p>Sustainable Food Advocate</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-controls">
+                <button class="testimonial-prev"><i class="fas fa-chevron-left"></i></button>
+                <div class="testimonial-dots">
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+                <button class="testimonial-next"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="contact">
+        <div class="container">
+            <div class="contact-wrapper">
+                <div class="contact-info" data-aos="fade-right">
+                    <h2 class="section-title">Get In Touch</h2>
+                    <p>We'd love to hear from you! Whether you have questions about our coffee, want to place a bulk order, or are interested in visiting our farm, our team is here to help.</p>
+                    <div class="contact-details">
+                        <div class="contact-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <p>Rerendet Farm, Bomet County<br>Southern Rift, Kenya</p>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fas fa-phone"></i>
+                            <p>+254 712 345 678</p>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fas fa-envelope"></i>
+                            <p>info@rerendetcoffee.com</p>
+                        </div>
+                    </div>
+                    <div class="social-links">
+                        <a href="#" class="social-link"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" class="social-link"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="social-link"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="social-link"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+                <div class="contact-form-container" data-aos="fade-left">
+                    <form id="contact-form" class="contact-form">
+                        <div class="form-group">
+                            <label for="name">Name</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="subject">Subject</label>
+                            <input type="text" id="subject" name="subject" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="message">Message</label>
+                            <textarea id="message" name="message" rows="4" required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary btn-block">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="newsletter">
+        <div class="container">
+            <div class="newsletter-content">
+                <h2>Join Our Coffee Journey</h2>
+                <p>Subscribe to receive updates, special offers, and brewing tips straight to your inbox.</p>
+                <form class="newsletter-form">
+                    <input type="email" placeholder="Your email address" required>
+                    <button type="submit" class="btn primary">Subscribe</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-section">
+                    <div class="footer-logo">
+                        <img src="https://via.placeholder.com/120x50?text=Rerendet" alt="Rerendet Coffee Logo">
+                        <h3>Rerendet Coffee</h3>
+                    </div>
+                    <p>Bringing the finest coffee from our farm to your cup since 1998.</p>
+                    <div class="footer-social">
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-youtube"></i></a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h3>Quick Links</h3>
+                    <ul class="footer-links">
+                        <li><a href="#hero">Home</a></li>
+                        <li><a href="#features">Our Coffee</a></li>
+                        <li><a href="#coffee-shop">Shop</a></li>
+                        <li><a href="blog.html">Blog</a></li>
+                        <li><a href="#about">About Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Help & Info</h3>
+                    <ul class="footer-links">
+                        <li><a href="#">Shipping Policy</a></li>
+                        <li><a href="#">Returns & Refunds</a></li>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#contact">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Shop Hours</h3>
+                    <ul class="hours-list">
+                        <li><span>Monday - Friday:</span> 8am - 5pm</li>
+                        <li><span>Saturday:</span> 9am - 4pm</li>
+                        <li><span>Sunday:</span> 10am - 2pm</li>
+                    </ul>
+                    <div class="payment-icons">
+                        <i class="fab fa-cc-visa"></i>
+                        <i class="fab fa-cc-mastercard"></i>
+                        <i class="fab fa-cc-paypal"></i>
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Rerendet Coffee Farm. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    <div id="notification" class="notification">
+        <div class="notification-content">
+            <i class="fas fa-check-circle"></i>
+            <span id="notification-message"></span>
+        </div>
+    </div>
+
+
+    <div id="mpesa-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>M-Pesa Payment</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="mpesa-form">
+                    <div class="form-group">
+                        <label for="phone-number">Phone Number</label>
+                        <input type="tel" id="phone-number" placeholder="e.g., 07XXXXXXXX" required>
+                    </div>
+                    <p class="modal-info">
+                        You will receive an M-Pesa prompt on your phone to complete the payment.
+                    </p>
+                    <div class="total-amount">
+                        <span>Total Amount:</span>
+                        <span id="mpesa-amount">KSh 0</span>
+                    </div>
+                    <button type="submit" class="btn primary btn-block">Confirm Payment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+<div id="card-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Card Payment</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="card-form">
+                    <div class="form-group">
+                        <label for="card-name">Name on Card</label>
+                        <input type="text" id="card-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="card-number">Card Number</label>
+                        <input type="text" id="card-number" placeholder="1234 5678 9012 3456" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expiry-date">Expiry Date</label>
+                            <input type="text" id="expiry-date" placeholder="MM/YY" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="cvv">CVV</label>
+                            <input type="text" id="cvv" placeholder="123" required>
+                        </div>
+                    </div>
+                    <div class="total-amount">
+                        <span>Total Amount:</span>
+                        <span id="card-amount">KSh 0</span>
+                    </div>
+                    <button type="submit" id="stripe-submit" class="btn primary btn-block">
+                        <span id="button-text">Pay Now</span>
+                        <div id="spinner" class="hidden"></div>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <button id="back-to-top" class="back-to-top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+
+    <script src="/client/main.js"></script>
+</body>
+</html> -->
