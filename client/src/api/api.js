@@ -1,4 +1,3 @@
-// src/api/api.js
 import axios from 'axios';
 
 const API = axios.create({ 
@@ -6,21 +5,24 @@ const API = axios.create({
   withCredentials: true
 });
 
-// Products API
+// ---------- AUTH ----------
+export const register = (userData) => API.post('/auth/register', userData);
+export const verifyEmail = (verifyData) => API.post('/auth/verify-email', verifyData);
+export const login = (userData) => API.post('/auth/login', userData);
+export const logout = () => API.post('/auth/logout');
+export const getProfile = () => API.get('/auth/profile');
+
+// ---------- PRODUCTS ----------
 export const fetchProducts = () => API.get('/products');
 export const createProduct = (productData) => API.post('/products', productData);
 
-// Auth API
-export const register = (userData) => API.post('/users/register', userData);
-export const login = (userData) => API.post('/users/login', userData);
-
-// Orders API
+// ---------- ORDERS ----------
 export const createOrder = (orderData) => API.post('/orders', orderData);
 
-// M-Pesa API
+// ---------- M-PESA ----------
 export const initiateMpesaPayment = (paymentData) => API.post('/mpesa/stkpush', paymentData);
 
-// Add request interceptor to attach token
+// Interceptor → add token automatically
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {

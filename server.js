@@ -1,61 +1,80 @@
-import dotenv from 'dotenv';
+// server.js
 import express from 'express';
-import cookieParser from 'cookie-parser';
+import mongoose from 'mongoose';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
 import connectDB from './config/db.js';
+// Import routes
 import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-import { notFound, errorHandler } from './middleware/errorMiddleware.js';
+import cartRoutes from './routes/cartRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 dotenv.config();
 
-// Get directory name equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-connectDB();
-
 const app = express();
 
-// Middleware
-app.use(express.json());
-app.use(cookieParser());
-
-// CORS Configuration
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
-    : 'http://localhost:3000',
+// Security middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true
-};
-app.use(cors(corsOptions));
+}));
 
-// API Routes
+import ('./config/db.js'); // Connect to MongoDB
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
+
+// Body parser middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Connect to MongoDB
+connectDB();
+
+// Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/users', userRoutes);
-
-// Serve static files in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../client', 'build', 'index.html'));
+app.use('/api/cart', cartRoutes);
+app.use('/api/payments', paymentRoutes);
+// Health check route
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    success: true,
+    message: 'Server is running!', 
+    timestamp: new Date().toISOString() 
   });
-} else {
-  app.get('/', (req, res) => {
-    res.send('API is running...');
-  });
-}
+});
 
-// Error Handling Middleware
-app.use(notFound);
-app.use(errorHandler);
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    success: false, 
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    success: false, 
+    message: 'Route not found' 
+  });
+});
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
