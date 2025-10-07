@@ -1,10 +1,30 @@
-import { createContext, useState, useEffect } from 'react';
-import { login as apiLogin, logout as apiLogout, verifyEmail, register as apiRegister } from '../api/api';
+// context/AppContext.js
+import React, { createContext, useState, useEffect } from 'react';
+import { 
+  login as apiLogin, 
+  logout as apiLogout, 
+  verifyEmail, 
+  register as apiRegister,
+  googleAuth as apiGoogleAuth 
+} from '../api/api';
 
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  // Cart state
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    return savedUser && token ? JSON.parse(savedUser) : null;
+  });
+  
+  const [loading, setLoading] = useState(false);
+  const [notification, setNotification] = useState({ 
+    message: '', 
+    type: '', 
+    isVisible: false 
+  });
+
+  // Cart states
   const [cart, setCart] = useState(() => {
     const savedCart = localStorage.getItem('cart');
     return savedCart ? JSON.parse(savedCart) : [];
@@ -42,95 +62,169 @@ export const AppProvider = ({ children }) => {
   const removeFromCart = (id) => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
-  // User state
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
-  const [isGuest, setIsGuest] = useState(!user);
-
-  // UI states
-  const [notification, setNotification] = useState({ message: '', type: '', isVisible: false });
-
-  // Save user to localStorage
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
-    }
-  }, [user]);
-
-  // Notifications
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type, isVisible: true });
-    setTimeout(() => setNotification({ message: '', type: '', isVisible: false }), 3000);
-  };
 
   // Auth functions
-  const registerUser = async (formData) => {
+  const signup = async (formData) => {
+    setLoading(true);
     try {
       const res = await apiRegister(formData);
-      showNotification(res.data.message, 'success');
-      return res.data.data;
+      showNotification('Registration successful! Please check your email for verification code.', 'success');
+      return res.data;
     } catch (err) {
-      showNotification(err.response?.data?.message || 'Registration failed', 'error');
+      const errorMessage = err.response?.data?.message || 'Registration failed';
+      showNotification(errorMessage, 'error');
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   const verifyUserEmail = async (email, code) => {
+    setLoading(true);
     try {
+      console.log('🔄 Verifying email in context:', email);
+      
       const res = await verifyEmail({ email, code });
-      const userData = res.data.data;
-      localStorage.setItem('token', userData.token);
+      const { token, user: userData } = res.data.data;
+      
+      console.log('✅ Verification response:', userData);
+      
+      // Update localStorage and state
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
-      setIsGuest(false);
-      showNotification(res.data.message, 'success');
+      
+      console.log('✅ User state updated in context:', userData);
+      
+      showNotification('Email verified successfully! Welcome to Rerendet Coffee!', 'success');
       return userData;
+      
     } catch (err) {
-      showNotification(err.response?.data?.message || 'Verification failed', 'error');
+      console.error('❌ Verification failed in context:', err);
+      const errorMessage = err.response?.data?.message || 'Verification failed';
+      showNotification(errorMessage, 'error');
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loginUser = async (formData) => {
+  const login = async (formData) => {
+    setLoading(true);
     try {
       const res = await apiLogin(formData);
-      const userData = res.data.data;
-      localStorage.setItem('token', userData.token);
+      const { token, user: userData } = res.data.data;
+      
+      console.log('🔑 Login successful, updating user state:', userData);
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
-      setIsGuest(false);
-      showNotification(res.data.message, 'success');
+      
+      showNotification(`Welcome back, ${userData.firstName}!`, 'success');
       return userData;
     } catch (err) {
-      showNotification(err.response?.data?.message || 'Login failed', 'error');
+      const errorMessage = err.response?.data?.message || 'Login failed';
+      showNotification(errorMessage, 'error');
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logoutUser = async () => {
+  const loginWithGoogle = async (googleUser) => {
+    setLoading(true);
+    try {
+      console.log('🔐 Attempting Google login for:', googleUser.email);
+      
+      const res = await apiGoogleAuth(googleUser);
+      const { token, user: userData } = res.data.data;
+      
+      console.log('✅ Google login API response:', userData);
+      
+      // CRITICAL: Update both localStorage and state
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Force state update
+      setUser(userData);
+      
+      console.log('✅ User state updated after Google login:', userData);
+      console.log('✅ User first name:', userData.firstName);
+      
+      showNotification(`Welcome ${userData.firstName}! Google login successful!`, 'success');
+      return userData;
+      
+    } catch (err) {
+      console.error('❌ Google login failed:', err);
+      const errorMessage = err.response?.data?.message || 'Google login failed';
+      showNotification(errorMessage, 'error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
     try {
       await apiLogout();
     } catch (err) {
-      console.error(err);
+      console.error('Logout error:', err);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      showNotification('Logged out successfully', 'info');
     }
-    setUser(null);
-    localStorage.removeItem('token');
-    setIsGuest(true);
-    showNotification('You have been logged out', 'info');
+  };
+
+  // Check if user is logged in on app start
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        console.log('🔍 App started with user:', parsedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+
+  // Debug: Log when user state changes
+  useEffect(() => {
+    console.log('🎯 AppContext: User state changed!', user);
+    console.log('🎯 User first name:', user?.firstName);
+    console.log('🎯 User is logged in:', !!user);
+  }, [user]);
+
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type, isVisible: true });
+    setTimeout(() => {
+      setNotification({ message: '', type: '', isVisible: false });
+    }, 5000);
   };
 
   return (
     <AppContext.Provider value={{
+      // Auth
       user,
-      isGuest,
-      notification,
-      registerUser,
+      loading,
+      signup,
+      login,
+      logout,
       verifyUserEmail,
-      loginUser,
-      logoutUser,
+      loginWithGoogle,
+      
+      // Notification
+      notification,
       showNotification,
+      
       // Cart
       cart,
       cartCount,

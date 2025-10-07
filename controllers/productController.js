@@ -206,6 +206,6 @@ export {
   getProductById, 
   createProduct, 
   updateProduct, 
-  deleteProduct,
+  deleteProduct, // MAKE SURE THIS IS INCLUDED
   getFeaturedProducts
 };

@@ -20,14 +20,18 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Email is required'],
     unique: true,
     lowercase: true,
+    trim: true,
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
   phone: {
     type: String,
+    trim: true
   },
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters'],
+    minlength: [8, 'Password must be at least 8 characters'],
+    select: false
   },
   gender: {
     type: String,
@@ -37,36 +41,37 @@ const userSchema = new mongoose.Schema({
   dateOfBirth: {
     type: Date
   },
-  avatar: {
-    type: String,
-    default: '/images/default-avatar.png'
-  },
   isVerified: {
     type: Boolean,
     default: false
   },
-  verificationCode: String,
-  verificationCodeExpires: Date,
-  resetPasswordToken: String,
-  resetPasswordExpire: Date,
+  verificationCode: {
+    type: String,
+    select: false
+  },
+  verificationCodeExpires: {
+    type: Date,
+    select: false
+  },
+  resetPasswordToken: {
+    type: String,
+    select: false
+  },
+  resetPasswordExpires: {
+    type: Date,
+    select: false
+  },
+  googleId: {
+    type: String,
+    sparse: true
+  },
+  profilePicture: {
+    type: String
+  },
   isAdmin: {
     type: Boolean,
-    required: true,
     default: false
-  },
-  preferences: {
-    newsletter: { type: Boolean, default: true },
-    whatsappUpdates: { type: Boolean, default: false }
-  },
-  addresses: [{
-    name: String,
-    street: String,
-    city: String,
-    state: String,
-    zipCode: String,
-    country: String,
-    isDefault: { type: Boolean, default: false }
-  }]
+  }
 }, {
   timestamps: true
 });
@@ -75,14 +80,18 @@ const userSchema = new mongoose.Schema({
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
+  try {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Compare password method
-userSchema.methods.matchPassword = async function(enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Generate verification code
@@ -93,5 +102,15 @@ userSchema.methods.generateVerificationCode = function() {
   return code;
 };
 
-const User = mongoose.model('User', userSchema);
-export default User;
+// Remove sensitive information when converting to JSON
+userSchema.methods.toJSON = function() {
+  const user = this.toObject();
+  delete user.password;
+  delete user.verificationCode;
+  delete user.verificationCodeExpires;
+  delete user.resetPasswordToken;
+  delete user.resetPasswordExpires;
+  return user;
+};
+
+export default mongoose.model('User', userSchema);

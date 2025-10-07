@@ -19,8 +19,11 @@ import AdminLogin from './components/Admin/AdminLogin';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Checkout from './components/Checkout/Checkout';
+import Account from './pages/Account';
+import Orders from './pages/Orders';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
+
 import './App.css';
 
 function App() {
@@ -92,6 +95,8 @@ function App() {
                 : <AdminLogin onLogin={handleAdminLogin} />
             } 
           />
+          <Route path="/account" element={<Account />} />
+          <Route path="/orders" element={<Orders />} />
         </Routes>
 
         <CartSidebar />
@@ -105,3 +110,6 @@ function App() {
 }
 
 export default App;
+<AppProvider>
+  <App />
+</AppProvider>

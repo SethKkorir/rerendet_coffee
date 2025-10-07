@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AppContext } from '../../context/AppContext';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import { register, verifyEmail } from '../../api/api'; // <-- Add this import
 import './Navbar.css';
 
 function Navbar() {
@@ -31,6 +32,7 @@ function Navbar() {
     user,
     logout,
     loginWithGoogle,
+    showNotification
   } = useContext(AppContext);
 
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
@@ -125,38 +127,57 @@ function Navbar() {
     }
   };
 
-  const handleContinueFromAdditionalInfo = () => {
+  const handleContinueFromAdditionalInfo = async () => {
     if (gender && dob && agreeTerms) {
-      setSignupStep(5);
+      // Call backend register API
+      try {
+        const payload = {
+          firstName,
+          lastName,
+          email: emailOrPhone.includes('@') ? emailOrPhone : undefined,
+          phone: !emailOrPhone.includes('@') ? `${phonePrefix}${phoneNumber}` : undefined,
+          password,
+          gender,
+          dateOfBirth: dob,
+        };
+        const res = await register(payload);
+        // Optionally show a success message
+        setSignupStep(5); // Move to verification step
+      } catch (err) {
+        alert(err.response?.data?.message || 'Registration failed');
+      }
     }
   };
+const handleGoogleSuccess = async (credentialResponse) => {
+  try {
+    console.log('🔐 Google login response received');
+    
+    const decoded = jwtDecode(credentialResponse.credential);
+    
+    console.log('📧 Google user email:', decoded.email);
+    
+    const googleUser = {
+      email: decoded.email,
+      name: decoded.name,
+      picture: decoded.picture,
+      googleId: decoded.sub,
+      firstName: decoded.given_name,
+      lastName: decoded.family_name
+    };
 
-  const handleGoogleSuccess = (credentialResponse) => {
-    try {
-      const decoded = jwtDecode(credentialResponse.credential);
-      
-      // Create user object from Google response
-      const googleUser = {
-        email: decoded.email,
-        name: decoded.name,
-        picture: decoded.picture,
-        googleId: decoded.sub,
-        firstName: decoded.given_name,
-        lastName: decoded.family_name
-      };
-      
-      // Call your login function from context
-      loginWithGoogle(googleUser);
-      
-      // Close the sign-in form
-      closeSignInForm();
-      
-      console.log('Google login successful:', decoded);
-    } catch (error) {
-      console.error('Google login error:', error);
-    }
-  };
-
+    // Call your backend to login/register with Google
+    await loginWithGoogle(googleUser);
+    
+    // Close the form immediately - no verification needed
+    closeSignInForm();
+    
+    console.log('✅ Google login successful - user automatically logged in');
+    
+  } catch (error) {
+    console.error('❌ Google login error:', error);
+    showNotification('Google login failed. Please try again.', 'error');
+  }
+};
   const handleGoogleError = () => {
     console.log('Google login failed');
   };

@@ -13,7 +13,7 @@ const CoffeeShop = () => {
       description: "A medium roast with notes of chocolate and citrus.",
       size: "250g",
       price: 950,
-      image: "https://via.placeholder.com/300x300?text=Premium+Blend",
+      image: "/images/premium-blend.jpg",
       badge: "Bestseller"
     },
     {

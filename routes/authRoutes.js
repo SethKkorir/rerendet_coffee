@@ -9,7 +9,8 @@ import {
   updateUserProfile,
   forgotPassword,
   resetPassword,
-  checkEmail
+  checkEmail, 
+  googleAuth
 } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -23,7 +24,11 @@ router.post('/forgot-password', forgotPassword);
 router.get('/check-email', checkEmail);
 router.post('/reset-password', resetPassword);
 router.route('/profile')
+
   .get(protect, getUserProfile)
   .put(protect, updateUserProfile);
+
+router.post('/google', googleAuth);
+
 
 export default router;
