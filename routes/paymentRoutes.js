@@ -1,27 +1,14 @@
 // routes/paymentRoutes.js
 import express from 'express';
-import {
-  initiateMpesaPayment,
-  mpesaCallback,
-  checkMpesaPaymentStatus
-} from '../controllers/mpesaController.js';
-import {
-  initiateAirtelPayment,
-  airtelCallback,
-  checkAirtelPaymentStatus
-} from '../controllers/airtelController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { 
+  processMpesaPayment, 
+  processCardPayment 
+} from '../controllers/paymentController.js';
 
 const router = express.Router();
 
-// M-Pesa routes
-router.post('/mpesa/stk-push', protect, initiateMpesaPayment);
-router.post('/mpesa-callback', mpesaCallback);
-router.get('/mpesa/status/:paymentId', protect, checkMpesaPaymentStatus);
-
-// Airtel Money routes
-router.post('/airtel/request', protect, initiateAirtelPayment);
-router.post('/airtel-callback', airtelCallback);
-router.get('/airtel/status/:paymentId', protect, checkAirtelPaymentStatus);
+router.post('/mpesa', protect, processMpesaPayment);
+router.post('/card', protect, processCardPayment);
 
 export default router;

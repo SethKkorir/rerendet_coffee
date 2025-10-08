@@ -32,7 +32,8 @@ function Navbar() {
     user,
     logout,
     loginWithGoogle,
-    showNotification
+    showNotification,
+    setUser // <-- Add setUser here
   } = useContext(AppContext);
 
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
@@ -52,6 +53,8 @@ function Navbar() {
   const [dob, setDob] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false); // <-- Add this line
 
   // Theme initialization
   useEffect(() => {
@@ -127,27 +130,44 @@ function Navbar() {
     }
   };
 
-  const handleContinueFromAdditionalInfo = async () => {
-    if (gender && dob && agreeTerms) {
-      // Call backend register API
-      try {
-        const payload = {
-          firstName,
-          lastName,
-          email: emailOrPhone.includes('@') ? emailOrPhone : undefined,
-          phone: !emailOrPhone.includes('@') ? `${phonePrefix}${phoneNumber}` : undefined,
-          password,
-          gender,
-          dateOfBirth: dob,
-        };
-        const res = await register(payload);
-        // Optionally show a success message
-        setSignupStep(5); // Move to verification step
-      } catch (err) {
-        alert(err.response?.data?.message || 'Registration failed');
-      }
+ const handleContinueFromAdditionalInfo = async () => {
+  if (gender && dob && agreeTerms) {
+    setIsSendingCode(true);
+    try {
+      const payload = {
+        firstName,
+        lastName,
+        email: emailOrPhone.includes('@') ? emailOrPhone : undefined,
+        phone: !emailOrPhone.includes('@') ? `${phonePrefix}${phoneNumber}` : undefined,
+        password,
+        gender,
+        dateOfBirth: dob,
+      };
+      
+      console.log('🔄 Sending registration data...');
+      const res = await register(payload);
+      
+      showNotification('Verification code sent to your email!', 'success');
+      setSignupStep(5);
+      
+    } catch (err) {
+      console.error('❌ Registration failed:', err);
+      const errorMessage = err.response?.data?.message || 'Registration failed. Please try again.';
+      showNotification(errorMessage, 'error');
+    } finally {
+      setIsSendingCode(false);
     }
-  };
+  }
+};
+
+// Update the button in step 4
+<button 
+  type="submit" 
+  className={`signin-btn ${isSendingCode ? 'loading' : ''}`}
+  disabled={!gender || !dob || !agreeTerms || isSendingCode}
+>
+  {isSendingCode ? 'Sending Code...' : 'Continue'}
+</button>
 const handleGoogleSuccess = async (credentialResponse) => {
   try {
     console.log('🔐 Google login response received');
@@ -182,18 +202,35 @@ const handleGoogleSuccess = async (credentialResponse) => {
     console.log('Google login failed');
   };
 
-  const handleCompleteSignup = () => {
-    console.log('Signup complete with:', {
-      emailOrPhone,
-      firstName,
-      lastName,
-      phoneNumber: emailOrPhone.includes('@') ? null : `${phonePrefix}${phoneNumber}`,
-      gender,
-      dob
-    });
-    closeSignInForm();
+  // const handleCompleteSignup = async () => {
+  //   setIsLoading(true);
+  //   try {
+  //     const res = await verifyEmail({ email: emailOrPhone, code: verificationCode });
+  //     setUser(res.data.data.user); // <-- Add this line
+  //     // Update user state with res.data.data.user
+  //     // Show welcome notification
+  //     closeSignInForm();
+  //   } catch (err) {
+  //     showNotification(err.response?.data?.message || 'Verification failed', 'error');
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+  const handleCompleteSignup = async () => {
+    setIsLoading(true);
+    try {
+      const res = await verifyEmail({ email: emailOrPhone, code: verificationCode });
+      const verifiedUser = res.data.data.user;
+      setUser(verifiedUser);
+      showNotification(`Welcome, ${verifiedUser.firstName}! Your account is verified.`, 'success');
+      closeSignInForm();
+      setIsAccountDropdownOpen(true);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Verification failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
-
   const goBackStep = () => {
     if (signupStep > 1) {
       setSignupStep(signupStep - 1);
@@ -468,50 +505,66 @@ const handleGoogleSuccess = async (credentialResponse) => {
             </form>
           </motion.div>
         );
-      case 5:
-        return (
-          <motion.div 
-            key="step5"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-          >
-            <div className="signin-header">
-              <button className="back-btn" onClick={goBackStep}>
-                <FaArrowLeft />
-              </button>
-              <h2>Verify Your Account</h2>
-              <p>We've sent a verification code to {emailOrPhone.includes('@') ? emailOrPhone : `+${phonePrefix}${phoneNumber}`}</p>
-            </div>
-            <form className="signin-form" onSubmit={(e) => { e.preventDefault(); handleCompleteSignup(); }}>
-              <div className="form-group">
-                <label htmlFor="verificationCode">Verification Code</label>
-                <input
-                  type="text"
-                  id="verificationCode"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value)}
-                  placeholder="Enter 6-digit code"
-                />
-              </div>
-              <button 
-                type="submit" 
-                className="signin-btn"
-                disabled={verificationCode.length !== 6}
-              >
-                Complete Signup
-              </button>
-              <div className="resend-code">
-                Didn't receive a code? <button type="button">Resend Code</button>
-              </div>
-            </form>
-          </motion.div>
-        );
+     case 5:
+  return (
+    <motion.div 
+      key="step5"
+      variants={formVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      <div className="signin-header">
+        <button className="back-btn" onClick={goBackStep}>
+          <FaArrowLeft />
+        </button>
+        <h2>Verify Your Account</h2>
+        <p>We've sent a 6-digit verification code to:</p>
+        <div className="email-display">
+          {emailOrPhone.includes('@') ? emailOrPhone : `+${phonePrefix}${phoneNumber}`}
+        </div>
+        <p style={{fontSize: '0.9rem', color: '#6c757d', marginTop: '10px'}}>
+          Check your spam folder if you don't see the email.
+        </p>
+      </div>
+      <form className="signin-form" onSubmit={(e) => { e.preventDefault(); handleCompleteSignup(); }}>
+        <div className="form-group">
+          <label htmlFor="verificationCode">Verification Code</label>
+          <input
+            type="text"
+            id="verificationCode"
+            value={verificationCode}
+            onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="Enter 6-digit code"
+            maxLength="6"
+            pattern="[0-9]{6}"
+          />
+        </div>
+        <button 
+          type="submit" 
+          className={`signin-btn ${isLoading ? 'loading' : ''}`}
+          disabled={verificationCode.length !== 6 || isLoading}
+        >
+          {isLoading ? 'Verifying...' : 'Complete Signup'}
+        </button>
+        <div className="resend-code">
+          Didn't receive a code? <button type="button">Resend Code</button>
+        </div>
+      </form>
+    </motion.div>
+  );
       default:
         return null;
     }
   };
+
+  // Add this above your return statement:
+  const renderLoadingModal = () => (
+    <div className="loading-overlay">
+      <div className="loading-spinner"></div>
+      <p style={{ marginTop: '1rem', color: '#059669', fontWeight: 600 }}>Processing...</p>
+    </div>
+  );
 
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
@@ -646,8 +699,10 @@ const handleGoogleSuccess = async (credentialResponse) => {
                 <button className="close-signin" onClick={closeSignInForm}>
                   <FaTimes />
                 </button>
+                {/* Show loading modal if loading or sending code */}
+                {(isLoading || isSendingCode) && renderLoadingModal()}
                 <AnimatePresence mode="wait">
-                  {renderSignupForm()}
+                  {!isLoading && !isSendingCode && renderSignupForm()}
                 </AnimatePresence>
               </motion.div>
             </motion.div>

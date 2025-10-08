@@ -10,9 +10,12 @@ import {
   forgotPassword,
   resetPassword,
   checkEmail, 
-  googleAuth
+  googleAuth,
+  // saveShippingInfo
 } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { saveShippingInfo } from '../controllers/shippingController.js';
+
 
 const router = express.Router();
 
@@ -27,8 +30,9 @@ router.route('/profile')
 
   .get(protect, getUserProfile)
   .put(protect, updateUserProfile);
-
+router.put('/shipping-info', protect, saveShippingInfo);
 router.post('/google', googleAuth);
+// router.put('/shipping-info', protect, saveShippingInfo);
 
 
 export default router;

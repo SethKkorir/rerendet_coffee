@@ -71,6 +71,17 @@ const userSchema = new mongoose.Schema({
   isAdmin: {
     type: Boolean,
     default: false
+  },
+  shippingInfo: {
+    firstName: String,
+    lastName: String,
+    email: String,
+    phone: String,
+    address: String,
+    city: String,
+    zip: String,
+    country: String,
+    deliveryOption: String
   }
 }, {
   timestamps: true

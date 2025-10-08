@@ -91,7 +91,10 @@ function Confirmation() {
 
           {/* Order details (your existing structure) */}
           <div className="confirmation-details">
-            {/* ... keep your existing detail rows ... */}
+            <p>Name: {orderDetails?.firstName} {orderDetails?.lastName}</p>
+            <p>Email: {orderDetails?.email}</p>
+            <p>Phone: {orderDetails?.phone}</p>
+            <p>Address: {orderDetails?.address}, {orderDetails?.city}</p>
           </div>
 
           {/* WhatsApp notification opt-in */}

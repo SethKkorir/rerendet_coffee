@@ -1,25 +1,22 @@
-// controllers/authController.js
 import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
 import { generateToken } from '../utils/generateToken.js';
 import sendEmail from '../utils/sendEmail.js';
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
+// Register user - ADD LOADING INDICATOR
 const registerUser = asyncHandler(async (req, res) => {
   const { firstName, lastName, email, password, phone, gender, dateOfBirth } = req.body;
-
   console.log('🚀 Registration attempt for:', email);
 
-  // Check if user exists
+  // Simulate processing delay for better UX
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     res.status(400);
     throw new Error('User already exists with this email');
   }
 
-  // Create user
   const user = await User.create({
     firstName,
     lastName,
@@ -30,15 +27,12 @@ const registerUser = asyncHandler(async (req, res) => {
     dateOfBirth: dateOfBirth || null
   });
 
-  // Generate verification code
   const verificationCode = user.generateVerificationCode();
   await user.save({ validateBeforeSave: false });
 
-  console.log('📧 Sending verification code to:', email);
-  console.log('🔢 Generated code:', verificationCode);
-
-  // Send verification email
   try {
+    console.log('📧 Sending verification email to:', email);
+    
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -51,6 +45,7 @@ const registerUser = asyncHandler(async (req, res) => {
           .code { background: white; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; border: 2px dashed #10b981; }
           .code-number { font-size: 2.5rem; font-weight: bold; color: #10b981; letter-spacing: 5px; }
           .footer { text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 0.9rem; }
+          .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 15px 0; }
         </style>
       </head>
       <body>
@@ -61,14 +56,13 @@ const registerUser = asyncHandler(async (req, res) => {
         <div class="content">
           <h2>Hello ${firstName}!</h2>
           <p>Thank you for registering with Rerendet Coffee. To complete your registration, please use the verification code below:</p>
-          
           <div class="code">
             <div class="code-number">${verificationCode}</div>
           </div>
-          
-          <p><strong>This code will expire in 10 minutes.</strong></p>
+          <div class="warning">
+            <strong>⚠️ This code will expire in 10 minutes.</strong>
+          </div>
           <p>Enter this code on the verification page to activate your account and start exploring our premium coffee selection.</p>
-          
           <p>If you didn't create an account with us, please ignore this email.</p>
         </div>
         <div class="footer">
@@ -85,7 +79,7 @@ const registerUser = asyncHandler(async (req, res) => {
       html: emailHtml
     });
 
-    console.log('✅ Verification email sent to:', user.email);
+    console.log('✅ Verification email sent successfully to:', email);
 
     res.status(201).json({
       success: true,
@@ -99,9 +93,8 @@ const registerUser = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Email sending failed:', error.message);
+    console.error('❌ Email sending failed:', error);
     
-    // Even if email fails, still allow registration but tell user to contact support
     res.status(201).json({
       success: true,
       message: 'Registration successful but verification email failed. Please contact support.',
@@ -116,14 +109,9 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Verify email
-// @route   POST /api/auth/verify-email
-// @access  Public
+// Verify email
 const verifyEmail = asyncHandler(async (req, res) => {
   const { email, code } = req.body;
-
-  console.log('🔍 Verifying email:', email, 'with code:', code);
-
   const user = await User.findOne({ 
     email,
     verificationCode: code,
@@ -135,27 +123,19 @@ const verifyEmail = asyncHandler(async (req, res) => {
     throw new Error('Invalid or expired verification code');
   }
 
-  // Mark user as verified and clear verification code
   user.isVerified = true;
   user.verificationCode = undefined;
   user.verificationCodeExpires = undefined;
   await user.save();
 
-  // Generate token
   const token = generateToken(user._id);
 
-  console.log('✅ Email verified successfully for:', email);
-
-  // Send welcome email - SIMPLIFIED VERSION
   try {
-    console.log('📧 Attempting to send welcome email to:', user.email);
-    
     const welcomeHtml = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h1 style="color: #10b981;">🎉 Welcome to Rerendet Coffee!</h1>
         <p>Hello ${user.firstName},</p>
         <p>Your account has been successfully verified and is now active!</p>
-        <p>You can now:</p>
         <ul>
           <li>Browse our premium coffee selection</li>
           <li>Place orders for delivery</li>
@@ -167,18 +147,13 @@ const verifyEmail = asyncHandler(async (req, res) => {
         <p>Best regards,<br>The Rerendet Coffee Team</p>
       </div>
     `;
-
     await sendEmail({
       email: user.email,
       subject: 'Welcome to Rerendet Coffee! 🎉',
       html: welcomeHtml
     });
-
-    console.log('✅ Welcome email sent successfully to:', user.email);
-
   } catch (welcomeError) {
-    console.log('⚠️ Welcome email failed:', welcomeError.message);
-    // Don't throw error - verification should still succeed
+    // Email failure doesn't stop flow
   }
 
   res.json({
@@ -199,31 +174,20 @@ const verifyEmail = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
+// Login user
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-
-  console.log('🔐 Login attempt for:', email);
-
-  // Check if user exists and password is correct
   const user = await User.findOne({ email }).select('+password');
-  
+
   if (!user || !(await user.comparePassword(password))) {
     res.status(401);
     throw new Error('Invalid email or password');
   }
-
   if (!user.isVerified) {
     res.status(401);
     throw new Error('Please verify your email before logging in');
   }
-
-  // Generate token
   const token = generateToken(user._id);
-
-  console.log('✅ Login successful for:', email);
 
   res.json({
     success: true,
@@ -243,134 +207,96 @@ const loginUser = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Google OAuth login/register
-// @route   POST /api/auth/google
-// @access  Public
-// controllers/authController.js - Google Auth with Welcome Email
+// Google OAuth login/register
 const googleAuth = asyncHandler(async (req, res) => {
   const { email, name, picture, googleId, firstName, lastName } = req.body;
+  let user = await User.findOne({ $or: [{ email }, { googleId }] });
+  let isNewUser = false;
 
-  console.log('🔐 Google auth attempt for:', email);
-
-  try {
-    let user = await User.findOne({ 
-      $or: [{ email }, { googleId }] 
-    });
-
-    let isNewUser = false;
-
-    if (user) {
-      // User exists - update Google info if needed
-      if (!user.googleId) {
-        user.googleId = googleId;
-        user.profilePicture = picture;
-        await user.save();
-      }
-    } else {
-      // Create new user with Google
-      isNewUser = true;
-      const nameParts = name.split(' ');
-      user = await User.create({
-        firstName: firstName || nameParts[0] || 'User',
-        lastName: lastName || nameParts.slice(1).join(' ') || 'User',
-        email,
-        googleId,
-        profilePicture: picture,
-        isVerified: true, // Google emails are verified
-        password: Math.random().toString(36).slice(-16) + 'Aa1!' // Random secure password
-      });
+  if (user) {
+    if (!user.googleId) {
+      user.googleId = googleId;
+      user.profilePicture = picture;
+      await user.save();
     }
-
-    // Generate token
-    const token = generateToken(user._id);
-
-    console.log('✅ Google auth successful for:', email);
-
-    // Send welcome email for new users
-    if (isNewUser) {
-      try {
-        const welcomeHtml = `
-          <div style="font-family: Arial, sans-serif; padding: 20px;">
-            <h1 style="color: #10b981;">🎉 Welcome to Rerendet Coffee!</h1>
-            <p>Hello ${user.firstName},</p>
-            <p>Thank you for joining Rerendet Coffee using Google Sign-In!</p>
-            <p>Your account has been created and you're ready to:</p>
-            <ul>
-              <li>Browse our premium coffee selection</li>
-              <li>Place orders for delivery</li>
-              <li>Track your orders</li>
-              <li>Save your favorite products</li>
-            </ul>
-            <p>Start exploring: <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}">Rerendet Coffee</a></p>
-            <br>
-            <p>Best regards,<br>The Rerendet Coffee Team</p>
-          </div>
-        `;
-
-        await sendEmail({
-          email: user.email,
-          subject: 'Welcome to Rerendet Coffee! 🎉',
-          html: welcomeHtml
-        });
-
-        console.log('✅ Welcome email sent to new Google user:', user.email);
-      } catch (emailError) {
-        console.log('⚠️ Welcome email failed for Google user:', emailError.message);
-        // Don't throw error - login should still succeed
-      }
-    }
-
-    res.json({
-      success: true,
-      message: isNewUser ? 'Account created successfully! Welcome to Rerendet Coffee!' : 'Login successful!',
-      data: {
-        token,
-        user: {
-          id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          profilePicture: user.profilePicture,
-          isVerified: user.isVerified,
-          isAdmin: user.isAdmin,
-          googleId: user.googleId
-        }
-      }
+  } else {
+    isNewUser = true;
+    const nameParts = name ? name.split(' ') : [];
+    user = await User.create({
+      firstName: firstName || nameParts[0] || 'User',
+      lastName: lastName || nameParts.slice(1).join(' ') || 'User',
+      email,
+      googleId,
+      profilePicture: picture,
+      isVerified: true,
+      password: Math.random().toString(36).slice(-16) + 'Aa1!'
     });
-
-  } catch (error) {
-    console.error('❌ Google auth error:', error);
-    res.status(500);
-    throw new Error('Google authentication failed');
   }
-});
-// @desc    Get user profile
-// @route   GET /api/auth/profile
-// @access  Private
-const getUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+
+  const token = generateToken(user._id);
+
+  if (isNewUser) {
+    try {
+      const welcomeHtml = `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h1 style="color: #10b981;">🎉 Welcome to Rerendet Coffee!</h1>
+          <p>Hello ${user.firstName},</p>
+          <p>Thank you for joining Rerendet Coffee using Google Sign-In!</p>
+          <p>Your account has been created and you're ready to:</p>
+          <ul>
+            <li>Browse our premium coffee selection</li>
+            <li>Place orders for delivery</li>
+            <li>Track your orders</li>
+            <li>Save your favorite products</li>
+          </ul>
+          <p>Start exploring: <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}">Rerendet Coffee</a></p>
+          <br>
+          <p>Best regards,<br>The Rerendet Coffee Team</p>
+        </div>
+      `;
+      await sendEmail({
+        email: user.email,
+        subject: 'Welcome to Rerendet Coffee! 🎉',
+        html: welcomeHtml
+      });
+    } catch (error) {
+      // Email failure doesn't stop flow
+    }
+  }
 
   res.json({
     success: true,
+    message: isNewUser ? 'Account created successfully! Welcome to Rerendet Coffee!' : 'Login successful!',
     data: {
-      id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone,
-      gender: user.gender,
-      dateOfBirth: user.dateOfBirth,
-      profilePicture: user.profilePicture,
-      isVerified: user.isVerified,
-      isAdmin: user.isAdmin,
-      googleId: user.googleId
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profilePicture: user.profilePicture,
+        isVerified: user.isVerified,
+        isAdmin: user.isAdmin,
+        googleId: user.googleId
+      }
     }
   });
 });
 
-// @desc    Update user profile
-// @route   PUT /api/auth/profile
-// @access  Private
+// Get user profile
+const getUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) throw new Error('User not found');
+  res.json({
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    phone: user.phone,
+    shippingInfo: user.shippingInfo || {}
+  });
+});
+
+// Update user profile
 const updateUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
@@ -405,9 +331,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Private
+// Logout user
 const logoutUser = asyncHandler(async (req, res) => {
   res.json({
     success: true,
@@ -415,14 +339,10 @@ const logoutUser = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Check if email exists
-// @route   GET /api/auth/check-email
-// @access  Public
+// Check if email exists
 const checkEmail = asyncHandler(async (req, res) => {
   const { email } = req.query;
-
   const user = await User.findOne({ email });
-  
   res.json({
     success: true,
     data: {
@@ -431,25 +351,20 @@ const checkEmail = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Forgot password
-// @route   POST /api/auth/forgot-password
-// @access  Public
+// Forgot password
 const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-
   const user = await User.findOne({ email });
   if (!user) {
     res.status(404);
     throw new Error('User not found with this email');
   }
 
-  // Generate reset token (6-digit code)
   const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
   user.resetPasswordToken = resetCode;
-  user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 minutes
+  user.resetPasswordExpires = Date.now() + 30 * 60 * 1000;
   await user.save({ validateBeforeSave: false });
 
-  // Send email
   try {
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -465,13 +380,11 @@ const forgotPassword = asyncHandler(async (req, res) => {
         <p>Best regards,<br>The Rerendet Coffee Team</p>
       </div>
     `;
-
     await sendEmail({
       email: user.email,
       subject: 'Password Reset Code - Rerendet Coffee',
       html: emailHtml
     });
-
     res.json({
       success: true,
       message: 'Password reset code sent to your email'
@@ -480,18 +393,14 @@ const forgotPassword = asyncHandler(async (req, res) => {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save({ validateBeforeSave: false });
-
     res.status(500);
     throw new Error('Email could not be sent');
   }
 });
 
-// @desc    Reset password
-// @route   POST /api/auth/reset-password
-// @access  Public
+// Reset password
 const resetPassword = asyncHandler(async (req, res) => {
   const { email, code, newPassword } = req.body;
-
   const user = await User.findOne({
     email,
     resetPasswordToken: code,
@@ -519,10 +428,11 @@ export {
   verifyEmail,
   loginUser,
   googleAuth,
+  logoutUser,
   getUserProfile,
   updateUserProfile,
-  logoutUser,
   checkEmail,
   forgotPassword,
   resetPassword
 };
+  

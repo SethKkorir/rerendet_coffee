@@ -13,6 +13,7 @@ import productRoutes from './routes/productRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import { saveShippingInfo } from './controllers/shippingController.js';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/payments', paymentRoutes);
+app.put('/api/auth/shipping-info', saveShippingInfo);
 // Health check route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 

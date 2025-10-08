@@ -79,36 +79,46 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const verifyUserEmail = async (email, code) => {
-    setLoading(true);
-    try {
-      console.log('🔄 Verifying email in context:', email);
-      
-      const res = await verifyEmail({ email, code });
-      const { token, user: userData } = res.data.data;
-      
-      console.log('✅ Verification response:', userData);
-      
-      // Update localStorage and state
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      
-      console.log('✅ User state updated in context:', userData);
-      
-      showNotification('Email verified successfully! Welcome to Rerendet Coffee!', 'success');
+ // In AppContext.js - Update verifyUserEmail function
+const verifyUserEmail = async (email, code) => {
+  setLoading(true);
+  try {
+    console.log('🔄 Verifying email in context:', email);
+    
+    const res = await verifyEmail({ email, code });
+    const { token, user: userData } = res.data.data;
+    
+    console.log('✅ Verification response:', userData);
+    
+    // Force update both localStorage and state
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    
+    // Use functional update to ensure state is set
+    setUser(prevUser => {
+      console.log('🔄 Previous user:', prevUser);
+      console.log('🔄 New user data:', userData);
       return userData;
-      
-    } catch (err) {
-      console.error('❌ Verification failed in context:', err);
-      const errorMessage = err.response?.data?.message || 'Verification failed';
-      showNotification(errorMessage, 'error');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    });
+    
+    // Double check the state was updated
+    setTimeout(() => {
+      const currentUser = JSON.parse(localStorage.getItem('user'));
+      console.log('✅ Final user state check:', currentUser);
+    }, 100);
+    
+    showNotification('Email verified successfully! Welcome to Rerendet Coffee!', 'success');
+    return userData;
+    
+  } catch (err) {
+    console.error('❌ Verification failed in context:', err);
+    const errorMessage = err.response?.data?.message || 'Verification failed';
+    showNotification(errorMessage, 'error');
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
   const login = async (formData) => {
     setLoading(true);
     try {

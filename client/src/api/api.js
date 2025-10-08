@@ -13,13 +13,15 @@ export const login = (userData) => API.post('/auth/login', userData);
 export const googleAuth = (userData) => API.post('/auth/google', userData);
 export const logout = () => API.post('/auth/logout');
 export const getProfile = () => API.get('/auth/profile');
+export const saveShippingInfo = (shippingData) => API.put('/auth/shipping-info', shippingData);
 
 // ---------- PRODUCTS ----------
 export const fetchProducts = () => API.get('/products');
 export const getFeaturedProducts = () => API.get('/products/featured');
 export const getProductById = (id) => API.get(`/products/${id}`);
 export const createProduct = (productData) => API.post('/products', productData);
-
+export const processCheckout = (checkoutData) => API.post('/orders/checkout', checkoutData);
+export const calculateShipping = (shippingData) => API.post('/orders/calculate-shipping', shippingData);
 // ---------- ORDERS ----------
 export const createOrder = (orderData) => API.post('/orders', orderData);
 export const getOrders = () => API.get('/orders');
@@ -27,6 +29,10 @@ export const getMyOrders = () => API.get('/orders/my-orders');
 
 // ---------- M-PESA ----------
 export const initiateMpesaPayment = (paymentData) => API.post('/mpesa/stkpush', paymentData);
+
+
+// export const getMyOrders = () => API.get('/orders/my-orders');
+// export const getOrderById = (id) => API.get(`/orders/${id}`);
 
 // Interceptor → add token automatically
 API.interceptors.request.use((config) => {
