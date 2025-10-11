@@ -409,6 +409,18 @@ input.error {
 .btn-outline:hover {
   background: #f9f7f4;
 }
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.note {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
 
 /* Responsive */
 @media (max-width: 1024px) {

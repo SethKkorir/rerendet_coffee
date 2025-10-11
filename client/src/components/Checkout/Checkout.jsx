@@ -35,6 +35,10 @@ function Checkout() {
     name: ''
   });
 
+  // Get cart items safely - handle both object and array structures
+  const cartItems = cart?.items || [];
+  const cartCount = cartItems.length;
+
   // Validate shipping form
   const validateShipping = () => {
     const newErrors = {};
@@ -120,7 +124,8 @@ function Checkout() {
           state: { 
             orderDetails: formData,
             paymentMethod,
-            orderTotal: amount
+            orderTotal: amount,
+            cartItems: cartItems
           }
         });
       }
@@ -131,17 +136,24 @@ function Checkout() {
     }
   };
 
-  // Calculate order values
-  const calculateSubtotal = () => cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  // Calculate order values safely
+  const calculateSubtotal = () => cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   const calculateDelivery = () => formData.deliveryOption === 'express' ? 300 : 0;
   const calculateTotal = () => calculateSubtotal() + calculateDelivery();
 
   // Prevent checkout with empty cart
   useEffect(() => {
-    if (cart.length === 0) {
+    if (cartCount === 0) {
       navigate('/cart');
     }
-  }, [cart, navigate]);
+  }, [cartCount, navigate]);
+
+  // Add form-row CSS class for card details layout
+  const formRowStyle = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '1rem'
+  };
 
   return (
     <div className="checkout-page">
@@ -394,7 +406,7 @@ function Checkout() {
                         {errors.number && <span className="error-message"><FaExclamationCircle /> {errors.number}</span>}
                       </div>
                       
-                      <div className="form-row">
+                      <div style={formRowStyle}>
                         <div className="form-group">
                           <label>Expiry Date *</label>
                           <input
@@ -460,8 +472,8 @@ function Checkout() {
               </div>
               
               <div className="summary-items">
-                {cart.map(item => (
-                  <div key={item.id} className="summary-item">
+                {cartItems.map(item => (
+                  <div key={item._id} className="summary-item">
                     <div className="item-info">
                       <span className="item-quantity">{item.quantity}x</span>
                       <span className="item-name">{item.name}</span>

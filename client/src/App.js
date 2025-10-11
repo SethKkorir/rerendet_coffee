@@ -11,7 +11,6 @@ import Contact from './components/Contact/Contact';
 import Newsletter from './components/Newsletter/Newsletter';
 import Footer from './components/Footer/Footer';
 import CartSidebar from './components/Cart/CartSidebar';
-import Notification from './components/Notification/Notification';
 import { MpesaModal, CardModal } from './components/Modals/PaymentModal';
 import BackToTop from './components/BackToTop/BackToTop';
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -19,12 +18,14 @@ import AdminLogin from './components/Admin/AdminLogin';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Checkout from './components/Checkout/Checkout';
-import Account from './pages/Account';
+// import Account from './pages/Account';
+import AccountDashboard from './components/Account/AccountDashboard';
 import Orders from './pages/Orders';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 
 import './App.css';
+import Alert from './components/Alert/Alert';
 
 function App() {
   const [isAdmin, setIsAdmin] = useState(() => {
@@ -95,12 +96,13 @@ function App() {
                 : <AdminLogin onLogin={handleAdminLogin} />
             } 
           />
-          <Route path="/account" element={<Account />} />
+       <Route path="/account" element={<AccountDashboard />} />
           <Route path="/orders" element={<Orders />} />
+
         </Routes>
 
         <CartSidebar />
-        <Notification />
+        <Alert /> {/* Use only Alert component - remove Notification */}
         <MpesaModal />
         <CardModal />
         <BackToTop />
@@ -110,6 +112,3 @@ function App() {
 }
 
 export default App;
-<AppProvider>
-  <App />
-</AppProvider>

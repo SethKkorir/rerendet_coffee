@@ -82,7 +82,61 @@ const userSchema = new mongoose.Schema({
     zip: String,
     country: String,
     deliveryOption: String
-  }
+  },
+  // NEW FIELDS FOR DASHBOARD
+  preferences: {
+    favoriteRoast: {
+      type: String,
+      enum: ['light', 'medium', 'dark', ''],
+      default: ''
+    },
+    brewMethod: {
+      type: String,
+      enum: ['espresso', 'pour-over', 'french-press', 'aeropress', ''],
+      default: ''
+    }
+  },
+  loyalty: {
+    points: {
+      type: Number,
+      default: 0
+    },
+    tier: {
+      type: String,
+      enum: ['Bronze', 'Silver', 'Gold', 'Platinum'],
+      default: 'Bronze'
+    },
+    joinedAt: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  security: {
+    loginAttempts: {
+      type: Number,
+      default: 0
+    },
+    lockUntil: Date,
+    lastPasswordChange: {
+      type: Date,
+      default: Date.now
+    },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false
+    },
+    twoFactorSecret: String
+  },
+  lastLogin: Date,
+  loginHistory: [{
+    ip: String,
+    userAgent: String,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    success: Boolean
+  }]
 }, {
   timestamps: true
 });
@@ -94,6 +148,12 @@ userSchema.pre('save', async function(next) {
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
+    
+    // Update password change timestamp
+    if (this.isModified('password')) {
+      this.security.lastPasswordChange = Date.now();
+    }
+    
     next();
   } catch (error) {
     next(error);
@@ -113,6 +173,61 @@ userSchema.methods.generateVerificationCode = function() {
   return code;
 };
 
+// NEW SECURITY METHODS
+userSchema.methods.incrementLoginAttempts = async function() {
+  if (this.security.lockUntil && this.security.lockUntil < Date.now()) {
+    return await this.updateOne({
+      $set: { 'security.loginAttempts': 1 },
+      $unset: { 'security.lockUntil': 1 }
+    });
+  }
+  
+  const updates = { $inc: { 'security.loginAttempts': 1 } };
+  
+  if (this.security.loginAttempts + 1 >= 5 && !this.security.lockUntil) {
+    updates.$set = { 'security.lockUntil': Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
+  }
+  
+  return await this.updateOne(updates);
+};
+
+userSchema.methods.resetLoginAttempts = async function() {
+  return await this.updateOne({
+    $set: { 'security.loginAttempts': 0 },
+    $unset: { 'security.lockUntil': 1 }
+  });
+};
+
+userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
+  if (this.security.lastPasswordChange) {
+    const changedTimestamp = parseInt(this.security.lastPasswordChange.getTime() / 1000, 10);
+    return JWTTimestamp < changedTimestamp;
+  }
+  return false;
+};
+
+userSchema.virtual('isLocked').get(function() {
+  return !!(this.security.lockUntil && this.security.lockUntil > Date.now());
+});
+
+// Update loyalty points
+userSchema.methods.updateLoyaltyPoints = async function(points) {
+  this.loyalty.points += points;
+  
+  // Update tier based on points
+  if (this.loyalty.points >= 1000) {
+    this.loyalty.tier = 'Platinum';
+  } else if (this.loyalty.points >= 500) {
+    this.loyalty.tier = 'Gold';
+  } else if (this.loyalty.points >= 100) {
+    this.loyalty.tier = 'Silver';
+  } else {
+    this.loyalty.tier = 'Bronze';
+  }
+  
+  await this.save();
+};
+
 // Remove sensitive information when converting to JSON
 userSchema.methods.toJSON = function() {
   const user = this.toObject();
@@ -121,6 +236,7 @@ userSchema.methods.toJSON = function() {
   delete user.verificationCodeExpires;
   delete user.resetPasswordToken;
   delete user.resetPasswordExpires;
+  delete user.security?.twoFactorSecret;
   return user;
 };
 

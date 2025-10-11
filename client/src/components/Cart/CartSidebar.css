@@ -1,0 +1,148 @@
+/* Alert Styles */
+.alert {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 16px 20px;
+  border-radius: 8px;
+  color: white;
+  z-index: 10000;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideInRight 0.3s ease-out;
+}
+
+.alert.success {
+  background: #10b981;
+  border-left: 4px solid #059669;
+}
+
+.alert.error {
+  background: #ef4444;
+  border-left: 4px solid #dc2626;
+}
+
+.alert.warning {
+  background: #f59e0b;
+  border-left: 4px solid #d97706;
+}
+
+.alert.info {
+  background: #3b82f6;
+  border-left: 4px solid #2563eb;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Cart Loading States */
+.cart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.cart-item.updating {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Enhanced Cart Styles */
+.cart-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cart-count-badge {
+  background: #007bff;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.cart-item-pricing {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 5px 0;
+}
+
+.cart-item-subtotal {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.free-shipping {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.free-shipping-progress {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.progress-bar {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #10b981;
+  transition: width 0.3s ease;
+}
+
+.price-row.discount {
+  color: #ef4444;
+}
+
+.price-row.total {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 8px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
