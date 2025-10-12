@@ -5,20 +5,27 @@ import Product from '../models/Product.js';
 import asyncHandler from 'express-async-handler';
 
 // Utility function to calculate cart totals
+
 const calculateCartTotals = (items) => {
+  const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
   const itemsCount = items.reduce((total, item) => total + item.quantity, 0);
-  const totalPrice = items.reduce((total, item) => total + (item.price * item.quantity), 0);
   
-  const shippingPrice = totalPrice >= 5000 ? 0 : 500;
-  const taxPrice = Math.round(totalPrice * 0.16);
-  const finalPrice = totalPrice + shippingPrice + taxPrice;
+  // Free shipping for orders over 5000 KSh
+  const shippingPrice = subtotal >= 5000 ? 0 : 500;
+  
+  // 16% VAT
+  const taxPrice = Math.round(subtotal * 0.16);
+  
+  const finalPrice = subtotal + shippingPrice + taxPrice;
 
   return {
+    items,
     itemsCount,
-    totalPrice,
-    shippingPrice,
-    taxPrice,
-    finalPrice
+    subtotal, // Keep for backend but don't show in cart
+    shippingPrice, // Keep for backend but don't show in cart
+    taxPrice, // Keep for backend but don't show in cart
+    finalPrice, // Only show this in cart
+    currency: 'KES'
   };
 };
 
@@ -28,20 +35,25 @@ const calculateCartTotals = (items) => {
 const getCart = asyncHandler(async (req, res) => {
   try {
     let cart = await Cart.findOne({ user: req.user._id })
-      .populate('items.product', 'name images price inventory isActive');
+      .populate('items.product', 'name images price inventory isActive slug');
 
     if (!cart) {
       // Create new empty cart
       cart = await Cart.create({
         user: req.user._id,
-        items: [],
         ...calculateCartTotals([])
       });
     }
 
+    // Ensure cart has all required fields
+    const cartData = {
+      ...cart.toObject(),
+      ...calculateCartTotals(cart.items)
+    };
+
     res.json({
       success: true,
-      data: cart,
+      data: cartData,
       message: cart.items.length === 0 ? 'Your cart is empty' : 'Cart retrieved successfully'
     });
   } catch (error) {
@@ -109,7 +121,7 @@ const addToCart = asyncHandler(async (req, res) => {
       cart.items[existingItemIndex].quantity = newQuantity;
     } else {
       // Add new item
-      const productImage = product.images && product.images[0] ? product.images[0].url : '/images/coffee/placeholder.jpg';
+      const productImage = product.images?.[0]?.url || '/images/coffee/placeholder.jpg';
       
       cart.items.push({
         product: productId,
@@ -126,7 +138,7 @@ const addToCart = asyncHandler(async (req, res) => {
     Object.assign(cart, totals);
 
     await cart.save();
-    await cart.populate('items.product', 'name images price inventory isActive');
+    await cart.populate('items.product', 'name images price inventory isActive slug');
 
     res.status(200).json({
       success: true,
@@ -172,6 +184,11 @@ const updateCartItem = asyncHandler(async (req, res) => {
     // Check stock if increasing quantity
     if (quantity > item.quantity) {
       const product = await Product.findById(item.product);
+      if (!product) {
+        res.status(404);
+        throw new Error('Product not found');
+      }
+      
       if (quantity > product.inventory.stock) {
         res.status(400);
         throw new Error(`Only ${product.inventory.stock} items available in stock`);
@@ -185,7 +202,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
     Object.assign(cart, totals);
 
     await cart.save();
-    await cart.populate('items.product', 'name images price inventory isActive');
+    await cart.populate('items.product', 'name images price inventory isActive slug');
 
     res.json({
       success: true,
@@ -225,7 +242,7 @@ const removeFromCart = asyncHandler(async (req, res) => {
     Object.assign(cart, totals);
 
     await cart.save();
-    await cart.populate('items.product', 'name images price inventory isActive');
+    await cart.populate('items.product', 'name images price inventory isActive slug');
 
     res.json({
       success: true,
@@ -255,7 +272,6 @@ const clearCart = asyncHandler(async (req, res) => {
 
     const emptyCart = cart || await Cart.create({
       user: req.user._id,
-      items: [],
       ...calculateCartTotals([])
     });
 
@@ -271,7 +287,7 @@ const clearCart = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Get cart summary
+// @desc    Get cart summary (for navbar)
 // @route   GET /api/cart/summary
 // @access  Private
 const getCartSummary = asyncHandler(async (req, res) => {
@@ -280,7 +296,7 @@ const getCartSummary = asyncHandler(async (req, res) => {
     
     const summary = cart ? {
       itemsCount: cart.itemsCount || 0,
-      totalPrice: cart.totalPrice || 0,
+      totalPrice: cart.finalPrice || 0,
       uniqueItemsCount: cart.items.length || 0
     } : {
       itemsCount: 0,
@@ -318,12 +334,20 @@ const mergeCarts = asyncHandler(async (req, res) => {
     }
 
     let mergedItems = false;
+    const mergeResults = {
+      added: 0,
+      updated: 0,
+      skipped: 0
+    };
 
     // Merge guest cart items
     for (const guestItem of guestCart.items) {
       try {
         const product = await Product.findById(guestItem.product);
-        if (!product || !product.isActive) continue;
+        if (!product || !product.isActive) {
+          mergeResults.skipped++;
+          continue;
+        }
 
         const existingItem = userCart.items.find(item => 
           item.product.toString() === guestItem.product.toString()
@@ -333,7 +357,10 @@ const mergeCarts = asyncHandler(async (req, res) => {
           const newQuantity = existingItem.quantity + guestItem.quantity;
           if (newQuantity <= product.inventory.stock) {
             existingItem.quantity = newQuantity;
+            mergeResults.updated++;
             mergedItems = true;
+          } else {
+            mergeResults.skipped++;
           }
         } else {
           if (guestItem.quantity <= product.inventory.stock) {
@@ -345,11 +372,15 @@ const mergeCarts = asyncHandler(async (req, res) => {
               quantity: guestItem.quantity,
               addedAt: new Date()
             });
+            mergeResults.added++;
             mergedItems = true;
+          } else {
+            mergeResults.skipped++;
           }
         }
       } catch (error) {
         console.warn('Skipping invalid guest cart item:', error.message);
+        mergeResults.skipped++;
       }
     }
 
@@ -359,12 +390,13 @@ const mergeCarts = asyncHandler(async (req, res) => {
       await userCart.save();
     }
 
-    await userCart.populate('items.product', 'name images price inventory isActive');
+    await userCart.populate('items.product', 'name images price inventory isActive slug');
 
     res.json({
       success: true,
       message: mergedItems ? 'Carts merged successfully' : 'No items to merge',
-      data: userCart
+      data: userCart,
+      mergeResults
     });
 
   } catch (error) {

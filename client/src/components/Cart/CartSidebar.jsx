@@ -1,32 +1,43 @@
-// Updated CartSidebar.jsx
+// components/Cart/CartSidebar.jsx
 import React, { useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
-import { FaTimes, FaArrowRight, FaTrash, FaPlus, FaMinus } from 'react-icons/fa';
+import { FaTimes, FaArrowRight, FaTrash, FaPlus, FaMinus, FaShoppingBag } from 'react-icons/fa';
 import './CartSidebar.css';
 
 function CartSidebar() {
   const {
+    user,
     cart,
-    cartSummary,
     cartLoading,
     isCartOpen,
     setIsCartOpen,
     updateQuantity,
     removeFromCart,
-    showAlert
+    showNotification
   } = useContext(AppContext);
   
   const navigate = useNavigate();
 
   const closeCart = useCallback(() => {
     setIsCartOpen(false);
-    document.body.classList.remove('menu-open');
+    document.body.classList.remove('cart-open');
   }, [setIsCartOpen]);
+
+  const openShop = () => {
+    closeCart();
+    navigate('/shop');
+  };
 
   const proceedToCheckout = () => {
     if (!cart?.items || cart.items.length === 0) {
-      showAlert('Your cart is empty', 'warning');
+      showNotification('Your cart is empty', 'warning');
+      return;
+    }
+
+    if (!user) {
+      showNotification('Please sign in to proceed to checkout', 'warning');
+      closeCart();
       return;
     }
 
@@ -38,7 +49,7 @@ function CartSidebar() {
     try {
       await updateQuantity(itemId, delta);
     } catch (error) {
-      // Error handling is done in the context
+      console.error('Failed to update quantity:', error);
     }
   };
 
@@ -46,14 +57,14 @@ function CartSidebar() {
     try {
       await removeFromCart(itemId);
     } catch (error) {
-      // Error handling is done in the context
+      console.error('Failed to remove item:', error);
     }
   };
 
   // Calculate display values
   const displayCart = cart || { items: [] };
-  const displayTotal = cart?.totalPrice || cart?.finalPrice || 0;
-  const itemCount = cart?.itemsCount || cartSummary.itemsCount || 0;
+  const displayTotal = cart?.finalPrice || cart?.totalPrice || 0;
+  const itemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   // Close cart when clicking overlay
   const handleOverlayClick = (e) => {
@@ -74,6 +85,15 @@ function CartSidebar() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isCartOpen, closeCart]);
 
+  // Add/remove body class for cart open state
+  React.useEffect(() => {
+    if (isCartOpen) {
+      document.body.classList.add('cart-open');
+    } else {
+      document.body.classList.remove('cart-open');
+    }
+  }, [isCartOpen]);
+
   return (
     <>
       <div 
@@ -90,9 +110,9 @@ function CartSidebar() {
         {/* Header */}
         <div className="cart-header">
           <div className="cart-title">
-            <h2>Your Shopping Cart</h2>
+            <h2>Shopping Cart</h2>
             {itemCount > 0 && (
-              <span className="cart-count-badge">{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+              <span className="cart-count-badge">{itemCount} {itemCount === 1 ? 'item' : 'items'}</span>
             )}
           </div>
           <button 
@@ -104,7 +124,7 @@ function CartSidebar() {
           </button>
         </div>
         
-        {/* Cart Items */}
+        {/* Cart Content */}
         <div className="cart-content">
           {cartLoading && (
             <div className="cart-loading">
@@ -116,12 +136,14 @@ function CartSidebar() {
           <div className="cart-items">
             {!displayCart.items || displayCart.items.length === 0 ? (
               <div className="cart-empty">
-                <div className="empty-cart-icon">🛒</div>
+                <div className="empty-cart-icon">
+                  <FaShoppingBag />
+                </div>
                 <h3>Your cart is empty</h3>
                 <p>Add some delicious coffee to get started!</p>
                 <button 
                   className="btn primary" 
-                  onClick={closeCart}
+                  onClick={openShop}
                 >
                   Start Shopping
                 </button>
@@ -134,7 +156,7 @@ function CartSidebar() {
                 >
                   <div className="cart-item-image">
                     <img 
-                      src={item.image} 
+                      src={item.image || '/images/placeholder-coffee.jpg'} 
                       alt={item.name} 
                       loading="lazy"
                       onError={(e) => {
@@ -144,18 +166,9 @@ function CartSidebar() {
                   </div>
                   
                   <div className="cart-item-details">
-                    <div className="cart-item-title">{item.name}</div>
+                    <h4 className="cart-item-title">{item.name}</h4>
                     
-                    {item.variant && (
-                      <div className="cart-item-variant">{item.variant}</div>
-                    )}
-                    
-                    <div className="cart-item-pricing">
-                      <div className="cart-item-price">KSh {item.price?.toLocaleString()}</div>
-                      <div className="cart-item-subtotal">
-                        KSh {(item.price * item.quantity)?.toLocaleString()}
-                      </div>
-                    </div>
+                    <div className="cart-item-price">KSh {item.price?.toLocaleString()}</div>
                     
                     <div className="cart-item-controls">
                       <div className="quantity-control">
@@ -163,6 +176,7 @@ function CartSidebar() {
                           onClick={() => handleQuantityUpdate(item._id || item.id, -1)}
                           disabled={item.quantity <= 1 || cartLoading}
                           aria-label={`Decrease quantity of ${item.name}`}
+                          className="quantity-btn"
                         >
                           <FaMinus />
                         </button>
@@ -171,6 +185,7 @@ function CartSidebar() {
                           onClick={() => handleQuantityUpdate(item._id || item.id, 1)}
                           disabled={cartLoading}
                           aria-label={`Increase quantity of ${item.name}`}
+                          className="quantity-btn"
                         >
                           <FaPlus />
                         </button>
@@ -183,8 +198,11 @@ function CartSidebar() {
                         aria-label={`Remove ${item.name} from cart`}
                       >
                         <FaTrash />
-                        <span>Remove</span>
                       </button>
+                    </div>
+                    
+                    <div className="cart-item-total">
+                      KSh {(item.price * item.quantity)?.toLocaleString()}
                     </div>
                   </div>
                 </div>
@@ -193,86 +211,55 @@ function CartSidebar() {
           </div>
         </div>
         
-        {/* Footer with Totals */}
+        {/* Cart Footer - SIMPLIFIED */}
         {displayCart.items && displayCart.items.length > 0 && (
           <div className="cart-footer">
-            {/* Pricing Breakdown */}
-            <div className="cart-pricing-breakdown">
-              <div className="price-row">
-                <span>Subtotal:</span>
-                <span>KSh {displayCart.subtotal?.toLocaleString() || displayTotal.toLocaleString()}</span>
-              </div>
-              
-              {displayCart.shippingPrice !== undefined && (
-                <div className="price-row">
-                  <span>Shipping:</span>
-                  <span className={displayCart.shippingPrice === 0 ? 'free-shipping' : ''}>
-                    {displayCart.shippingPrice === 0 ? 'FREE' : `KSh ${displayCart.shippingPrice.toLocaleString()}`}
-                  </span>
-                </div>
-              )}
-              
-              {displayCart.taxPrice !== undefined && displayCart.taxPrice > 0 && (
-                <div className="price-row">
-                  <span>Tax:</span>
-                  <span>KSh {displayCart.taxPrice.toLocaleString()}</span>
-                </div>
-              )}
-              
-              {displayCart.discountAmount !== undefined && displayCart.discountAmount > 0 && (
-                <div className="price-row discount">
-                  <span>Discount:</span>
-                  <span>-KSh {displayCart.discountAmount.toLocaleString()}</span>
-                </div>
-              )}
-              
-              <div className="price-row total">
+            {/* Simple Total Only */}
+            <div className="cart-total-simple">
+              <div className="total-amount">
                 <span>Total:</span>
-                <span>KSh {displayTotal.toLocaleString()}</span>
+                <span className="total-price">KSh {displayTotal.toLocaleString()}</span>
+              </div>
+              <div className="total-note">
+                Shipping & taxes calculated at checkout
               </div>
             </div>
 
-            {/* Free Shipping Progress */}
-            {displayCart.subtotal > 0 && displayCart.subtotal < 5000 && (
-              <div className="free-shipping-progress">
-                <div className="progress-text">
-                  Add <strong>KSh {(5000 - displayCart.subtotal).toLocaleString()}</strong> more for free shipping!
-                </div>
-                <div className="progress-bar">
-                  <div 
-                    className="progress-fill" 
-                    style={{ width: `${(displayCart.subtotal / 5000) * 100}%` }}
-                  ></div>
-                </div>
+            {/* Guest User Notice */}
+            {!user && (
+              <div className="guest-notice">
+                <p>Please sign in to proceed to checkout</p>
               </div>
             )}
 
-            {/* Checkout Button */}
-            <button 
-              className="btn btn-primary checkout-btn" 
-              onClick={proceedToCheckout}
-              disabled={cartLoading}
-            >
-              {cartLoading ? (
-                <>
-                  <div className="btn-spinner"></div>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Proceed to Checkout
-                  <FaArrowRight />
-                </>
-              )}
-            </button>
-            
-            {/* Continue Shopping */}
-            <button 
-              className="btn secondary continue-shopping" 
-              onClick={closeCart}
-            >
-              Continue Shopping
-            </button>
+            {/* Action Buttons */}
+            <div className="cart-actions">
+              <button 
+                className="btn checkout-btn" 
+                onClick={proceedToCheckout}
+                disabled={cartLoading || !user}
+              >
+                {cartLoading ? (
+                  <>
+                    <div className="btn-spinner"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Proceed to Checkout
+                    <FaArrowRight />
+                  </>
+                )}
+              </button>
+              
+              <button 
+                className="btn secondary continue-btn" 
+                onClick={openShop}
+                disabled={cartLoading}
+              >
+                Continue Shopping
+              </button>
+            </div>
           </div>
         )}
       </div>

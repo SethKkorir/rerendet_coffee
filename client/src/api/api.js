@@ -1,4 +1,4 @@
-// api/api.js - Add dashboard functions
+// api/api.js - Add missing authentication functions
 import axios from 'axios';
 
 const API = axios.create({ 
@@ -16,7 +16,17 @@ export const getProfile = () => API.get('/auth/profile');
 export const updateProfile = (profileData) => API.put('/auth/profile', profileData);
 export const saveShippingInfo = (shippingData) => API.put('/auth/shipping-info', shippingData);
 
-// ---------- DASHBOARD ---------- (Add these)
+// ADD MISSING AUTH FUNCTIONS HERE:
+export const resendVerificationCode = (emailData) => API.post('/auth/resend-verification', emailData);
+export const checkEmail = (email) => API.get(`/auth/check-email?email=${encodeURIComponent(email)}`);
+export const forgotPassword = (emailData) => API.post('/auth/forgot-password', emailData);
+export const resetPassword = (passwordData) => API.post('/auth/reset-password', passwordData);
+
+// Alias functions for compatibility (use existing functions)
+export const getUserProfile = getProfile; // Alias for getProfile
+export const updateUserProfile = updateProfile; // Alias for updateProfile
+
+// ---------- DASHBOARD ----------
 export const getDashboardData = () => API.get('/dashboard/data');
 export const updatePreferences = (preferencesData) => API.put('/dashboard/preferences', preferencesData);
 export const updatePassword = (passwordData) => API.put('/dashboard/security/password', passwordData);

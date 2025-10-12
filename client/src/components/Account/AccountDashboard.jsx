@@ -1,32 +1,15 @@
-// AccountDashboard.jsx - Complete Version
+// components/AccountDashboard.jsx
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../../context/AppContext';
 import { 
   FaUser, FaShoppingBag, FaMapMarkerAlt, FaCreditCard, 
-  FaHeart, FaCog, FaBell, FaShieldAlt, FaCoffee, FaStar,
-  FaEdit, FaPlus, FaTrash, FaEye, FaEyeSlash, FaCheck,
+  FaHeart, FaCog, FaShieldAlt, FaCoffee, FaStar,
+  FaEdit, FaPlus, FaTrash, FaEye, FaEyeSlash,
   FaBox, FaTruck, FaCheckCircle, FaClock, FaUserCircle,
-  FaExclamationTriangle, FaTimes, FaSearch, FaFilter,
+  FaExclamationTriangle, FaTimes, FaSearch,
   FaArrowLeft, FaArrowRight, FaShoppingCart, FaHistory,
   FaGift
 } from 'react-icons/fa';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  getDashboardData,
-  updateProfile,
-  updatePreferences,
-  getAddresses,
-  addAddress,
-  updateAddress,
-  deleteAddress,
-  getPaymentMethods,
-  addPaymentMethod,
-  updatePaymentMethod,
-  deletePaymentMethod,
-  updatePassword,
-  deleteAccount,
-  getDashboardOrders
-} from '../../api/api';
 import './AccountDashboard.css';
 
 function AccountDashboard() {
@@ -39,18 +22,18 @@ function AccountDashboard() {
   // Main data states
   const [dashboardData, setDashboardData] = useState({
     user: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      dateOfBirth: '',
-      gender: '',
-      profilePicture: '',
-      preferences: {
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      dateOfBirth: user?.dateOfBirth || '',
+      gender: user?.gender || '',
+      profilePicture: user?.profilePicture || '',
+      preferences: user?.preferences || {
         favoriteRoast: '',
         brewMethod: '',
       },
-      loyalty: {
+      loyalty: user?.loyalty || {
         points: 0,
         tier: 'Bronze',
         nextTier: 'Silver',
@@ -73,16 +56,16 @@ function AccountDashboard() {
 
   // Form states
   const [profileForm, setProfileForm] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    dateOfBirth: '',
-    gender: ''
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    phone: user?.phone || '',
+    dateOfBirth: user?.dateOfBirth || '',
+    gender: user?.gender || ''
   });
 
   const [preferencesForm, setPreferencesForm] = useState({
-    favoriteRoast: '',
-    brewMethod: ''
+    favoriteRoast: user?.preferences?.favoriteRoast || '',
+    brewMethod: user?.preferences?.brewMethod || ''
   });
 
   const [passwordForm, setPasswordForm] = useState({
@@ -120,19 +103,79 @@ function AccountDashboard() {
   const [ordersPage, setOrdersPage] = useState(1);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
+  // Initialize with user data
+  useEffect(() => {
+    if (user) {
+      setDashboardData(prev => ({
+        ...prev,
+        user: {
+          ...prev.user,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          phone: user.phone || '',
+          dateOfBirth: user.dateOfBirth || '',
+          gender: user.gender || '',
+          profilePicture: user.profilePicture || ''
+        }
+      }));
+
+      setProfileForm({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        phone: user.phone || '',
+        dateOfBirth: user.dateOfBirth || '',
+        gender: user.gender || ''
+      });
+    }
+  }, [user]);
+
+  // Mock API functions - replace with actual API calls
+  const mockApiCall = (data, delay = 1000) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ data: { success: true, data } });
+      }, delay);
+    });
+  };
+
+  // Mock API implementations
+  const getDashboardData = () => mockApiCall({
+    user: dashboardData.user,
+    addresses: [],
+    paymentMethods: [],
+    stats: {
+      totalOrders: 0,
+      loyaltyPoints: 0,
+      loyaltyTier: 'Bronze',
+      loyaltyProgress: 0,
+      favoritesCount: 0
+    },
+    recentOrders: []
+  });
+
+  const updateProfile = (data) => mockApiCall({ ...dashboardData.user, ...data });
+  const updatePreferences = (data) => mockApiCall({ ...dashboardData.user.preferences, ...data });
+  const getAddresses = () => mockApiCall([]);
+  const addAddress = (data) => mockApiCall(data);
+  const updateAddress = (id, data) => mockApiCall(data);
+  const deleteAddress = (id) => mockApiCall({ success: true });
+  const getPaymentMethods = () => mockApiCall([]);
+  const addPaymentMethod = (data) => mockApiCall(data);
+  const updatePaymentMethod = (id, data) => mockApiCall(data);
+  const deletePaymentMethod = (id) => mockApiCall({ success: true });
+  const updatePassword = (data) => mockApiCall({ success: true });
+  const deleteAccount = (data) => mockApiCall({ success: true });
+  const getDashboardOrders = () => mockApiCall({ orders: [] });
+
   // Fetch initial data
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  // Fetch orders when orders tab is active
-  useEffect(() => {
-    if (activeTab === 'orders') {
-      fetchOrders();
-    }
-  }, [activeTab, ordersPage]);
-
   const fetchDashboardData = async () => {
+    if (!user) return;
+    
     setLoading(true);
     try {
       const response = await getDashboardData();
@@ -166,7 +209,7 @@ function AccountDashboard() {
   const fetchOrders = async () => {
     setOrdersLoading(true);
     try {
-      const response = await getDashboardOrders({ page: ordersPage, limit: 10 });
+      const response = await getDashboardOrders();
       setOrders(response.data.data.orders || []);
     } catch (error) {
       console.error('Orders error:', error);
@@ -179,28 +222,32 @@ function AccountDashboard() {
   // Profile Management
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
+    if (!user) return;
+    
     setSaving(true);
     try {
       await updateProfile(profileForm);
-      await fetchDashboardData(); // Refresh data
+      await fetchDashboardData();
       setIsEditing(false);
       showNotification('Profile updated successfully!', 'success');
     } catch (error) {
       console.error('Profile update error:', error);
-      showNotification(error.response?.data?.message || 'Failed to update profile', 'error');
+      showNotification('Failed to update profile', 'error');
     }
     setSaving(false);
   };
 
   const handlePreferencesUpdate = async () => {
+    if (!user) return;
+    
     setSaving(true);
     try {
       await updatePreferences(preferencesForm);
-      await fetchDashboardData(); // Refresh data
+      await fetchDashboardData();
       showNotification('Preferences updated successfully!', 'success');
     } catch (error) {
       console.error('Preferences error:', error);
-      showNotification(error.response?.data?.message || 'Failed to update preferences', 'error');
+      showNotification('Failed to update preferences', 'error');
     }
     setSaving(false);
   };
@@ -229,7 +276,7 @@ function AccountDashboard() {
       });
     } catch (error) {
       console.error('Password update error:', error);
-      showNotification(error.response?.data?.message || 'Failed to update password', 'error');
+      showNotification('Failed to update password', 'error');
     }
     setSaving(false);
   };
@@ -240,13 +287,13 @@ function AccountDashboard() {
     setSaving(true);
     try {
       await addAddress(addressForm);
-      await fetchDashboardData(); // Refresh data
+      await fetchDashboardData();
       setShowAddressModal(false);
       resetAddressForm();
       showNotification('Address added successfully!', 'success');
     } catch (error) {
       console.error('Add address error:', error);
-      showNotification(error.response?.data?.message || 'Failed to add address', 'error');
+      showNotification('Failed to add address', 'error');
     }
     setSaving(false);
   };
@@ -255,15 +302,15 @@ function AccountDashboard() {
     e.preventDefault();
     setSaving(true);
     try {
-      await updateAddress(editingAddress._id, addressForm);
-      await fetchDashboardData(); // Refresh data
+      await updateAddress(editingAddress?._id, addressForm);
+      await fetchDashboardData();
       setShowAddressModal(false);
       setEditingAddress(null);
       resetAddressForm();
       showNotification('Address updated successfully!', 'success');
     } catch (error) {
       console.error('Update address error:', error);
-      showNotification(error.response?.data?.message || 'Failed to update address', 'error');
+      showNotification('Failed to update address', 'error');
     }
     setSaving(false);
   };
@@ -273,11 +320,11 @@ function AccountDashboard() {
     
     try {
       await deleteAddress(addressId);
-      await fetchDashboardData(); // Refresh data
+      await fetchDashboardData();
       showNotification('Address deleted successfully!', 'success');
     } catch (error) {
       console.error('Delete address error:', error);
-      showNotification(error.response?.data?.message || 'Failed to delete address', 'error');
+      showNotification('Failed to delete address', 'error');
     }
   };
 
@@ -311,13 +358,13 @@ function AccountDashboard() {
     setSaving(true);
     try {
       await addPaymentMethod(paymentForm);
-      await fetchDashboardData(); // Refresh data
+      await fetchDashboardData();
       setShowPaymentModal(false);
       resetPaymentForm();
       showNotification('Payment method added successfully!', 'success');
     } catch (error) {
       console.error('Add payment error:', error);
-      showNotification(error.response?.data?.message || 'Failed to add payment method', 'error');
+      showNotification('Failed to add payment method', 'error');
     }
     setSaving(false);
   };
@@ -326,15 +373,15 @@ function AccountDashboard() {
     e.preventDefault();
     setSaving(true);
     try {
-      await updatePaymentMethod(editingPayment._id, paymentForm);
-      await fetchDashboardData(); // Refresh data
+      await updatePaymentMethod(editingPayment?._id, paymentForm);
+      await fetchDashboardData();
       setShowPaymentModal(false);
       setEditingPayment(null);
       resetPaymentForm();
       showNotification('Payment method updated successfully!', 'success');
     } catch (error) {
       console.error('Update payment error:', error);
-      showNotification(error.response?.data?.message || 'Failed to update payment method', 'error');
+      showNotification('Failed to update payment method', 'error');
     }
     setSaving(false);
   };
@@ -344,11 +391,11 @@ function AccountDashboard() {
     
     try {
       await deletePaymentMethod(paymentId);
-      await fetchDashboardData(); // Refresh data
+      await fetchDashboardData();
       showNotification('Payment method deleted successfully!', 'success');
     } catch (error) {
       console.error('Delete payment error:', error);
-      showNotification(error.response?.data?.message || 'Failed to delete payment method', 'error');
+      showNotification('Failed to delete payment method', 'error');
     }
   };
 
@@ -386,7 +433,7 @@ function AccountDashboard() {
       logout();
     } catch (error) {
       console.error('Delete account error:', error);
-      showNotification(error.response?.data?.message || 'Failed to delete account', 'error');
+      showNotification('Failed to delete account', 'error');
     }
     setSaving(false);
     setShowDeleteConfirm(false);
@@ -438,20 +485,8 @@ function AccountDashboard() {
 
   // Modal Component
   const Modal = ({ title, children, onClose }) => (
-    <motion.div 
-      className="modal-overlay"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
-      <motion.div 
-        className="modal-content"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button className="close-modal" onClick={onClose}>
@@ -459,19 +494,15 @@ function AccountDashboard() {
           </button>
         </div>
         {children}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 
   // Tab Components
   const OverviewTab = () => (
     <div className="dashboard-tab">
       <div className="welcome-section">
-        <motion.div 
-          className="welcome-card"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <div className="welcome-card">
           <h2>
             Welcome back, {dashboardData.user.firstName}!
             <span className="coffee-emoji">☕</span>
@@ -481,7 +512,7 @@ function AccountDashboard() {
             <span>Member since {new Date().getFullYear()}</span>
             <span className="tier-badge">{dashboardData.user.loyalty.tier}</span>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       <div className="stats-grid">
@@ -818,385 +849,153 @@ function AccountDashboard() {
         </div>
       )}
 
-      {/* Address Modal */}
-      <AnimatePresence>
-        {showAddressModal && (
-          <Modal 
-            title={editingAddress ? 'Edit Address' : 'Add New Address'}
-            onClose={() => {
-              setShowAddressModal(false);
-              setEditingAddress(null);
-              resetAddressForm();
-            }}
-          >
-            <form onSubmit={editingAddress ? handleUpdateAddress : handleAddAddress}>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Address Type</label>
-                  <select
-                    value={addressForm.type}
-                    onChange={(e) => setAddressForm(prev => ({
-                      ...prev,
-                      type: e.target.value
-                    }))}
-                  >
-                    <option value="home">Home</option>
-                    <option value="work">Work</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Address Name *</label>
-                  <input
-                    type="text"
-                    value={addressForm.name}
-                    onChange={(e) => setAddressForm(prev => ({
-                      ...prev,
-                      name: e.target.value
-                    }))}
-                    placeholder="e.g., Home, Office"
-                    required
-                  />
-                </div>
-
-                <div className="form-group full-width">
-                  <label>Street Address *</label>
-                  <input
-                    type="text"
-                    value={addressForm.street}
-                    onChange={(e) => setAddressForm(prev => ({
-                      ...prev,
-                      street: e.target.value
-                    }))}
-                    placeholder="123 Coffee Street"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>City *</label>
-                  <input
-                    type="text"
-                    value={addressForm.city}
-                    onChange={(e) => setAddressForm(prev => ({
-                      ...prev,
-                      city: e.target.value
-                    }))}
-                    placeholder="Nairobi"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Postal Code *</label>
-                  <input
-                    type="text"
-                    value={addressForm.postalCode}
-                    onChange={(e) => setAddressForm(prev => ({
-                      ...prev,
-                      postalCode: e.target.value
-                    }))}
-                    placeholder="00100"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Country</label>
-                  <select
-                    value={addressForm.country}
-                    onChange={(e) => setAddressForm(prev => ({
-                      ...prev,
-                      country: e.target.value
-                    }))}
-                  >
-                    <option value="Kenya">Kenya</option>
-                    <option value="Tanzania">Tanzania</option>
-                    <option value="Uganda">Uganda</option>
-                  </select>
-                </div>
-
-                <div className="form-group full-width">
-                  <label>Delivery Instructions (Optional)</label>
-                  <textarea
-                    value={addressForm.instructions}
-                    onChange={(e) => setAddressForm(prev => ({
-                      ...prev,
-                      instructions: e.target.value
-                    }))}
-                    placeholder="Any special delivery instructions..."
-                    rows="3"
-                  />
-                </div>
-
-                <div className="form-group full-width">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={addressForm.isDefault}
-                      onChange={(e) => setAddressForm(prev => ({
-                        ...prev,
-                        isDefault: e.target.checked
-                      }))}
-                    />
-                    Set as default address
-                  </label>
-                </div>
-              </div>
-
-              <div className="modal-actions">
-                <button 
-                  type="button"
-                  className="btn-outline"
-                  onClick={() => {
-                    setShowAddressModal(false);
-                    setEditingAddress(null);
-                    resetAddressForm();
-                  }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn-primary"
-                  disabled={saving}
-                >
-                  {saving ? 'Saving...' : (editingAddress ? 'Update Address' : 'Add Address')}
-                </button>
-              </div>
-            </form>
-          </Modal>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-
-  const PaymentMethodsTab = () => (
-    <div className="dashboard-tab">
-      <div className="section-header">
-        <h3>Payment Methods</h3>
-        <button 
-          className="btn-primary"
-          onClick={() => openPaymentModal()}
+      {showAddressModal && (
+        <Modal 
+          title={editingAddress ? 'Edit Address' : 'Add New Address'}
+          onClose={() => {
+            setShowAddressModal(false);
+            setEditingAddress(null);
+            resetAddressForm();
+          }}
         >
-          <FaPlus /> Add Payment Method
-        </button>
-      </div>
-
-      {dashboardData.paymentMethods.length > 0 ? (
-        <div className="payment-methods-list">
-          {dashboardData.paymentMethods.map(payment => (
-            <div key={payment._id} className="payment-card">
-              <div className="payment-info">
-                <div className={`payment-icon ${payment.type}`}>
-                  {payment.type === 'mpesa' ? <FaCreditCard /> : <FaCreditCard />}
-                </div>
-                <div>
-                  <h4>{payment.name}</h4>
-                  <p>
-                    {payment.type === 'mpesa' 
-                      ? `Phone: ${payment.phone}` 
-                      : `Card: •••• ${payment.card?.last4 || '1234'}`
-                    }
-                  </p>
-                </div>
-              </div>
-              <div className="payment-actions">
-                {payment.isDefault && <span className="default-badge">Default</span>}
-                <button 
-                  className="btn-outline"
-                  onClick={() => openPaymentModal(payment)}
+          <form onSubmit={editingAddress ? handleUpdateAddress : handleAddAddress}>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Address Type</label>
+                <select
+                  value={addressForm.type}
+                  onChange={(e) => setAddressForm(prev => ({
+                    ...prev,
+                    type: e.target.value
+                  }))}
                 >
-                  Edit
-                </button>
-                {!payment.isDefault && (
-                  <button 
-                    className="btn-text danger"
-                    onClick={() => handleDeletePaymentMethod(payment._id)}
-                  >
-                    Delete
-                  </button>
-                )}
+                  <option value="home">Home</option>
+                  <option value="work">Work</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Address Name *</label>
+                <input
+                  type="text"
+                  value={addressForm.name}
+                  onChange={(e) => setAddressForm(prev => ({
+                    ...prev,
+                    name: e.target.value
+                  }))}
+                  placeholder="e.g., Home, Office"
+                  required
+                />
+              </div>
+
+              <div className="form-group full-width">
+                <label>Street Address *</label>
+                <input
+                  type="text"
+                  value={addressForm.street}
+                  onChange={(e) => setAddressForm(prev => ({
+                    ...prev,
+                    street: e.target.value
+                  }))}
+                  placeholder="123 Coffee Street"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>City *</label>
+                <input
+                  type="text"
+                  value={addressForm.city}
+                  onChange={(e) => setAddressForm(prev => ({
+                    ...prev,
+                    city: e.target.value
+                  }))}
+                  placeholder="Nairobi"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Postal Code *</label>
+                <input
+                  type="text"
+                  value={addressForm.postalCode}
+                  onChange={(e) => setAddressForm(prev => ({
+                    ...prev,
+                    postalCode: e.target.value
+                  }))}
+                  placeholder="00100"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Country</label>
+                <select
+                  value={addressForm.country}
+                  onChange={(e) => setAddressForm(prev => ({
+                    ...prev,
+                    country: e.target.value
+                  }))}
+                >
+                  <option value="Kenya">Kenya</option>
+                  <option value="Tanzania">Tanzania</option>
+                  <option value="Uganda">Uganda</option>
+                </select>
+              </div>
+
+              <div className="form-group full-width">
+                <label>Delivery Instructions (Optional)</label>
+                <textarea
+                  value={addressForm.instructions}
+                  onChange={(e) => setAddressForm(prev => ({
+                    ...prev,
+                    instructions: e.target.value
+                  }))}
+                  placeholder="Any special delivery instructions..."
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-group full-width">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={addressForm.isDefault}
+                    onChange={(e) => setAddressForm(prev => ({
+                      ...prev,
+                      isDefault: e.target.checked
+                    }))}
+                  />
+                  Set as default address
+                </label>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state">
-          <FaCreditCard className="empty-icon" />
-          <h4>No payment methods</h4>
-          <p>Add a payment method for faster checkout</p>
-          <button 
-            className="btn-primary"
-            onClick={() => openPaymentModal()}
-          >
-            Add Payment Method
-          </button>
-        </div>
-      )}
 
-      {/* Payment Method Modal */}
-      <AnimatePresence>
-        {showPaymentModal && (
-          <Modal 
-            title={editingPayment ? 'Edit Payment Method' : 'Add Payment Method'}
-            onClose={() => {
-              setShowPaymentModal(false);
-              setEditingPayment(null);
-              resetPaymentForm();
-            }}
-          >
-            <form onSubmit={editingPayment ? handleUpdatePaymentMethod : handleAddPaymentMethod}>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Payment Type</label>
-                  <select
-                    value={paymentForm.type}
-                    onChange={(e) => setPaymentForm(prev => ({
-                      ...prev,
-                      type: e.target.value
-                    }))}
-                  >
-                    <option value="mpesa">M-Pesa</option>
-                    <option value="card">Credit/Debit Card</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Name *</label>
-                  <input
-                    type="text"
-                    value={paymentForm.name}
-                    onChange={(e) => setPaymentForm(prev => ({
-                      ...prev,
-                      name: e.target.value
-                    }))}
-                    placeholder="e.g., My M-Pesa, Primary Card"
-                    required
-                  />
-                </div>
-
-                {paymentForm.type === 'mpesa' ? (
-                  <div className="form-group full-width">
-                    <label>Phone Number *</label>
-                    <input
-                      type="tel"
-                      value={paymentForm.phone}
-                      onChange={(e) => setPaymentForm(prev => ({
-                        ...prev,
-                        phone: e.target.value
-                      }))}
-                      placeholder="+254 XXX XXX XXX"
-                      required
-                    />
-                  </div>
-                ) : (
-                  <div className="form-group full-width">
-                    <label>Card Details</label>
-                    <p className="info-text">Card payment integration coming soon</p>
-                  </div>
-                )}
-
-                <div className="form-group full-width">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={paymentForm.isDefault}
-                      onChange={(e) => setPaymentForm(prev => ({
-                        ...prev,
-                        isDefault: e.target.checked
-                      }))}
-                    />
-                    Set as default payment method
-                  </label>
-                </div>
-              </div>
-
-              <div className="modal-actions">
-                <button 
-                  type="button"
-                  className="btn-outline"
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    setEditingPayment(null);
-                    resetPaymentForm();
-                  }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn-primary"
-                  disabled={saving}
-                >
-                  {saving ? 'Saving...' : (editingPayment ? 'Update Payment Method' : 'Add Payment Method')}
-                </button>
-              </div>
-            </form>
-          </Modal>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-
-  const OrdersTab = () => (
-    <div className="dashboard-tab">
-      <div className="section-header">
-        <h3>Order History</h3>
-        <div className="orders-filters">
-          <div className="search-box">
-            <FaSearch />
-            <input type="text" placeholder="Search orders..." />
-          </div>
-          <select className="filter-select">
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {ordersLoading ? (
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <p>Loading orders...</p>
-        </div>
-      ) : orders.length > 0 ? (
-        <>
-          <div className="orders-list detailed">
-            {orders.map(order => (
-              <OrderCard key={order._id} order={order} />
-            ))}
-          </div>
-          
-          <div className="pagination">
-            <button 
-              className="btn-outline"
-              disabled={ordersPage === 1}
-              onClick={() => setOrdersPage(prev => prev - 1)}
-            >
-              <FaArrowLeft /> Previous
-            </button>
-            <span>Page {ordersPage}</span>
-            <button 
-              className="btn-outline"
-              onClick={() => setOrdersPage(prev => prev + 1)}
-            >
-              Next <FaArrowRight />
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="empty-state">
-          <FaHistory className="empty-icon" />
-          <h4>No orders yet</h4>
-          <p>Your order history will appear here once you place an order</p>
-          <button className="btn-primary">Start Shopping</button>
-        </div>
+            <div className="modal-actions">
+              <button 
+                type="button"
+                className="btn-outline"
+                onClick={() => {
+                  setShowAddressModal(false);
+                  setEditingAddress(null);
+                  resetAddressForm();
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="btn-primary"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : (editingAddress ? 'Update Address' : 'Add Address')}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );
@@ -1259,23 +1058,6 @@ function AccountDashboard() {
                   placeholder="Enter new password"
                   required
                 />
-                <div className="password-requirements">
-                  <span className={passwordForm.newPassword.length >= 8 ? 'met' : ''}>
-                    • 8+ characters
-                  </span>
-                  <span className={/[A-Z]/.test(passwordForm.newPassword) ? 'met' : ''}>
-                    • 1 uppercase letter
-                  </span>
-                  <span className={/[a-z]/.test(passwordForm.newPassword) ? 'met' : ''}>
-                    • 1 lowercase letter
-                  </span>
-                  <span className={/\d/.test(passwordForm.newPassword) ? 'met' : ''}>
-                    • 1 number
-                  </span>
-                  <span className={/[@$!%*?&]/.test(passwordForm.newPassword) ? 'met' : ''}>
-                    • 1 special character
-                  </span>
-                </div>
               </div>
               
               <div className="form-group">
@@ -1322,53 +1104,50 @@ function AccountDashboard() {
         </div>
       </div>
 
-      {/* Delete Account Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteConfirm && (
-          <Modal 
-            title="Delete Your Account"
-            onClose={() => {
-              setShowDeleteConfirm(false);
-              setDeletePassword('');
-            }}
-          >
-            <div className="delete-warning">
-              <FaExclamationTriangle className="warning-icon" />
-              <h4>This action cannot be undone</h4>
-              <p>All your data including orders, addresses, and preferences will be permanently deleted.</p>
-              
-              <div className="form-group">
-                <label>Enter your password to confirm:</label>
-                <input
-                  type="password"
-                  value={deletePassword}
-                  onChange={(e) => setDeletePassword(e.target.value)}
-                  placeholder="Your current password"
-                />
-              </div>
-              
-              <div className="modal-actions">
-                <button 
-                  className="btn-outline"
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setDeletePassword('');
-                  }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="btn-danger"
-                  onClick={handleDeleteAccount}
-                  disabled={saving || !deletePassword}
-                >
-                  {saving ? 'Deleting...' : 'Delete Account Permanently'}
-                </button>
-              </div>
+      {showDeleteConfirm && (
+        <Modal 
+          title="Delete Your Account"
+          onClose={() => {
+            setShowDeleteConfirm(false);
+            setDeletePassword('');
+          }}
+        >
+          <div className="delete-warning">
+            <FaExclamationTriangle className="warning-icon" />
+            <h4>This action cannot be undone</h4>
+            <p>All your data including orders, addresses, and preferences will be permanently deleted.</p>
+            
+            <div className="form-group">
+              <label>Enter your password to confirm:</label>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Your current password"
+              />
             </div>
-          </Modal>
-        )}
-      </AnimatePresence>
+            
+            <div className="modal-actions">
+              <button 
+                className="btn-outline"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletePassword('');
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-danger"
+                onClick={handleDeleteAccount}
+                disabled={saving || !deletePassword}
+              >
+                {saving ? 'Deleting...' : 'Delete Account Permanently'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 
@@ -1377,8 +1156,6 @@ function AccountDashboard() {
     { id: 'overview', label: 'Overview', icon: <FaUser /> },
     { id: 'profile', label: 'Profile', icon: <FaUserCircle /> },
     { id: 'addresses', label: 'Addresses', icon: <FaMapMarkerAlt /> },
-    { id: 'payments', label: 'Payments', icon: <FaCreditCard /> },
-    { id: 'orders', label: 'Orders', icon: <FaShoppingBag /> },
     { id: 'security', label: 'Security', icon: <FaShieldAlt /> }
   ];
 
@@ -1387,12 +1164,21 @@ function AccountDashboard() {
       case 'overview': return <OverviewTab />;
       case 'profile': return <ProfileTab />;
       case 'addresses': return <AddressesTab />;
-      case 'payments': return <PaymentMethodsTab />;
-      case 'orders': return <OrdersTab />;
       case 'security': return <SecurityTab />;
       default: return <OverviewTab />;
     }
   };
+
+  if (!user) {
+    return (
+      <div className="account-dashboard">
+        <div className="login-prompt">
+          <h2>Please log in to view your account</h2>
+          <p>You need to be logged in to access your account dashboard.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading && !dashboardData.user.firstName) {
     return (
@@ -1442,17 +1228,7 @@ function AccountDashboard() {
 
         {/* Main Content */}
         <div className="dashboard-main">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              {renderTabContent()}
-            </motion.div>
-          </AnimatePresence>
+          {renderTabContent()}
         </div>
       </div>
     </div>

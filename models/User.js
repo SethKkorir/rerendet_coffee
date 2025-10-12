@@ -39,7 +39,15 @@ const userSchema = new mongoose.Schema({
     default: 'prefer-not-to-say'
   },
   dateOfBirth: {
-    type: Date
+    type: Date,
+    validate: {
+      validator: function(dob) {
+        if (!dob) return true; // Optional field
+        const age = Math.floor((new Date() - new Date(dob)) / (365.25 * 24 * 60 * 60 * 1000));
+        return age >= 13; // Must be at least 13 years old
+      },
+      message: 'You must be at least 13 years old to create an account'
+    }
   },
   isVerified: {
     type: Boolean,
@@ -83,7 +91,16 @@ const userSchema = new mongoose.Schema({
     country: String,
     deliveryOption: String
   },
-  // NEW FIELDS FOR DASHBOARD
+  // Security fields
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: Date,
+  lastLogin: Date,
+  passwordChangedAt: Date,
+  
+  // Preferences and loyalty
   preferences: {
     favoriteRoast: {
       type: String,
@@ -110,35 +127,14 @@ const userSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  },
-  security: {
-    loginAttempts: {
-      type: Number,
-      default: 0
-    },
-    lockUntil: Date,
-    lastPasswordChange: {
-      type: Date,
-      default: Date.now
-    },
-    twoFactorEnabled: {
-      type: Boolean,
-      default: false
-    },
-    twoFactorSecret: String
-  },
-  lastLogin: Date,
-  loginHistory: [{
-    ip: String,
-    userAgent: String,
-    timestamp: {
-      type: Date,
-      default: Date.now
-    },
-    success: Boolean
-  }]
+  }
 }, {
   timestamps: true
+});
+
+// Virtual for account lock
+userSchema.virtual('isLocked').get(function() {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
 // Hash password before saving
@@ -150,8 +146,8 @@ userSchema.pre('save', async function(next) {
     this.password = await bcrypt.hash(this.password, salt);
     
     // Update password change timestamp
-    if (this.isModified('password')) {
-      this.security.lastPasswordChange = Date.now();
+    if (this.isModified('password') && !this.isNew) {
+      this.passwordChangedAt = Date.now();
     }
     
     next();
@@ -173,42 +169,42 @@ userSchema.methods.generateVerificationCode = function() {
   return code;
 };
 
-// NEW SECURITY METHODS
+// Security methods
 userSchema.methods.incrementLoginAttempts = async function() {
-  if (this.security.lockUntil && this.security.lockUntil < Date.now()) {
-    return await this.updateOne({
-      $set: { 'security.loginAttempts': 1 },
-      $unset: { 'security.lockUntil': 1 }
+  // When we have a lock time and it's expired, reset
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    return this.updateOne({
+      $set: { loginAttempts: 1 },
+      $unset: { lockUntil: 1 }
     });
   }
   
-  const updates = { $inc: { 'security.loginAttempts': 1 } };
+  // Otherwise increment
+  const updates = { $inc: { loginAttempts: 1 } };
   
-  if (this.security.loginAttempts + 1 >= 5 && !this.security.lockUntil) {
-    updates.$set = { 'security.lockUntil': Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
+  // Lock the account if we've reached max attempts and it's not locked already
+  if (this.loginAttempts + 1 >= 5 && !this.lockUntil) {
+    updates.$set = { lockUntil: Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
   }
   
-  return await this.updateOne(updates);
+  return this.updateOne(updates);
 };
 
 userSchema.methods.resetLoginAttempts = async function() {
-  return await this.updateOne({
-    $set: { 'security.loginAttempts': 0 },
-    $unset: { 'security.lockUntil': 1 }
+  return this.updateOne({
+    $set: { loginAttempts: 0 },
+    $unset: { lockUntil: 1 }
   });
 };
 
+// Check if password was changed after token was issued
 userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
-  if (this.security.lastPasswordChange) {
-    const changedTimestamp = parseInt(this.security.lastPasswordChange.getTime() / 1000, 10);
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
     return JWTTimestamp < changedTimestamp;
   }
   return false;
 };
-
-userSchema.virtual('isLocked').get(function() {
-  return !!(this.security.lockUntil && this.security.lockUntil > Date.now());
-});
 
 // Update loyalty points
 userSchema.methods.updateLoyaltyPoints = async function(points) {
@@ -228,6 +224,12 @@ userSchema.methods.updateLoyaltyPoints = async function(points) {
   await this.save();
 };
 
+// Calculate age from date of birth
+userSchema.methods.getAge = function() {
+  if (!this.dateOfBirth) return null;
+  return Math.floor((new Date() - new Date(this.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000));
+};
+
 // Remove sensitive information when converting to JSON
 userSchema.methods.toJSON = function() {
   const user = this.toObject();
@@ -236,7 +238,6 @@ userSchema.methods.toJSON = function() {
   delete user.verificationCodeExpires;
   delete user.resetPasswordToken;
   delete user.resetPasswordExpires;
-  delete user.security?.twoFactorSecret;
   return user;
 };
 

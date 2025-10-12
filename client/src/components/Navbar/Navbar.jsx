@@ -1,5 +1,6 @@
+// components/Navbar/Navbar.jsx
 import React, { useState, useContext, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaUser, 
   FaShoppingBag, 
@@ -11,7 +12,6 @@ import {
   FaMoon,
   FaBoxOpen,
   FaGoogle,
-  FaFacebook,
   FaEye,
   FaEyeSlash,
   FaArrowLeft,
@@ -19,33 +19,37 @@ import {
   FaStar,
   FaHeart,
   FaMapMarkerAlt,
-  FaCreditCard,
-  FaShield
+  FaCreditCard
 } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppContext } from '../../context/AppContext';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
-import { register, verifyEmail, login } from '../../api/api';
 import './Navbar.css';
 
 function Navbar() {
   const {
+    user,
     cartCount,
     setIsCartOpen,
     mobileMenuOpen,
     setMobileMenuOpen,
-    user,
     logout,
+    login,
+    register,
+    verifyUserEmail,
     loginWithGoogle,
-    showNotification,
-    setUser
+    resendVerificationCode,
+    showNotification
   } = useContext(AppContext);
 
+  const navigate = useNavigate();
+  
+  // State management
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
   const [showAuthForm, setShowAuthForm] = useState(false);
+  const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
   const [signupStep, setSignupStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
@@ -79,6 +83,19 @@ function Navbar() {
     document.documentElement.setAttribute('data-theme', initialMode ? 'dark' : 'light');
   }, []);
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isAccountDropdownOpen && !event.target.closest('.account-section')) {
+        setIsAccountDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isAccountDropdownOpen]);
+
+  // Theme toggle
   const toggleTheme = () => {
     const newMode = !darkMode;
     setDarkMode(newMode);
@@ -86,15 +103,18 @@ function Navbar() {
     document.documentElement.setAttribute('data-theme', newMode ? 'dark' : 'light');
   };
 
+  // Mobile menu toggle
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
     document.body.classList.toggle('menu-open', !mobileMenuOpen);
   };
 
+  // Account dropdown toggle
   const toggleAccountDropdown = () => {
     setIsAccountDropdownOpen(!isAccountDropdownOpen);
   };
 
+  // Auth form handlers
   const handleAuthClick = (mode = 'signin') => {
     setAuthMode(mode);
     setShowAuthForm(true);
@@ -127,12 +147,19 @@ function Navbar() {
     });
     setVerificationCode(['', '', '', '', '', '']);
     setErrors({});
+    setShowPassword(false);
   };
 
   // Validation functions
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validatePhone = (phone) => /^\+254[0-9]{9}$/.test(phone);
   const validatePassword = (password) => password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
+  
+  const validateDateOfBirth = (dob) => {
+    if (!dob) return true;
+    const age = Math.floor((new Date() - new Date(dob)) / (365.25 * 24 * 60 * 60 * 1000));
+    return age >= 13;
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -160,15 +187,36 @@ function Navbar() {
         return;
       }
 
-      const loginData = { email, password };
-      const userData = await login(loginData);
-      
-      showNotification(`Welcome back, ${userData.firstName}!`, 'success');
+      await login({ email, password });
       closeAuthForm();
       
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Login failed. Please try again.';
-      setErrors({ general: errorMessage });
+      
+      if (errorMessage.includes('verify your email')) {
+        setErrors({ 
+          general: errorMessage,
+          showResendVerification: true 
+        });
+      } else if (errorMessage.includes('locked')) {
+        setErrors({ general: 'Account temporarily locked. Please try again later.' });
+      } else {
+        setErrors({ general: errorMessage });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Resend verification code
+  const handleResendVerification = async () => {
+    try {
+      setIsLoading(true);
+      await resendVerificationCode(formData.email);
+      showNotification('Verification code sent to your email!', 'success');
+      setErrors(prev => ({ ...prev, showResendVerification: false }));
+    } catch (error) {
+      showNotification('Failed to send verification code', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -220,7 +268,12 @@ function Navbar() {
     e.preventDefault();
     const { firstName, lastName, email, phone, password, gender, dob, agreeTerms } = formData;
     
-    if (!gender || !dob || !agreeTerms) {
+    if (dob && !validateDateOfBirth(dob)) {
+      setErrors({ dob: 'You must be at least 13 years old to create an account' });
+      return;
+    }
+
+    if (!gender || !agreeTerms) {
       setErrors({ general: 'Please fill in all required fields and agree to terms' });
       return;
     }
@@ -234,7 +287,7 @@ function Navbar() {
         phone: validatePhone(phone) ? phone : `${formData.phonePrefix}${formData.phoneNumber}`,
         password,
         gender,
-        dateOfBirth: dob,
+        dateOfBirth: dob || null,
       };
       
       await register(payload);
@@ -249,14 +302,13 @@ function Navbar() {
     }
   };
 
-  // M-Pesa style PIN input for verification
+  // Verification code handlers
   const handleVerificationInput = (index, value) => {
     if (value.length <= 1 && /^\d*$/.test(value)) {
       const newCode = [...verificationCode];
       newCode[index] = value;
       setVerificationCode(newCode);
 
-      // Auto-focus next input
       if (value && index < 5) {
         const nextInput = document.getElementById(`verification-${index + 1}`);
         if (nextInput) nextInput.focus();
@@ -280,10 +332,8 @@ function Navbar() {
 
     setIsLoading(true);
     try {
-      const res = await verifyEmail({ email: formData.email, code });
-      const verifiedUser = res.data.data.user;
-      setUser(verifiedUser);
-      showNotification(`Welcome, ${verifiedUser.firstName}! Your account is verified.`, 'success');
+      await verifyUserEmail(formData.email, code);
+      showNotification(`Welcome, ${user?.firstName}! Your account is verified.`, 'success');
       closeAuthForm();
       setIsAccountDropdownOpen(true);
     } catch (error) {
@@ -308,7 +358,6 @@ function Navbar() {
 
       await loginWithGoogle(googleUser);
       closeAuthForm();
-      showNotification(`Welcome ${googleUser.firstName}!`, 'success');
       
     } catch (error) {
       showNotification('Google login failed. Please try again.', 'error');
@@ -317,6 +366,18 @@ function Navbar() {
 
   const handleGoogleError = () => {
     showNotification('Google login failed. Please try again.', 'error');
+  };
+
+  // Navigation handlers
+  const handleNavigation = (path) => {
+    setMobileMenuOpen(false);
+    navigate(path);
+  };
+
+  // Calculate age for display
+  const calculateAge = (dob) => {
+    if (!dob) return 0;
+    return Math.floor((new Date() - new Date(dob)) / (365.25 * 24 * 60 * 60 * 1000));
   };
 
   // Animation variants
@@ -349,7 +410,29 @@ function Navbar() {
           </div>
 
           <form className="auth-form" onSubmit={handleSignIn}>
-            {errors.general && <div className="error-message general">{errors.general}</div>}
+            {errors.general && (
+              <div className="error-message general">
+                {errors.general}
+                {errors.showResendVerification && (
+                  <div style={{ marginTop: '10px' }}>
+                    <button 
+                      type="button" 
+                      onClick={handleResendVerification}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--accent-color)',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      Click here to resend verification code
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="form-group">
               <label>Email Address</label>
@@ -431,13 +514,14 @@ function Navbar() {
               {errors.general && <div className="error-message general">{errors.general}</div>}
               
               <div className="form-group">
-                <label>Email Address</label>
+                <label>Email Address *</label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   className={errors.email ? 'error' : ''}
                   placeholder="your@email.com"
+                  required
                 />
                 {errors.email && <span className="error-text">{errors.email}</span>}
               </div>
@@ -508,7 +592,7 @@ function Navbar() {
 
             <form className="auth-form" onSubmit={handleSignUpStep2}>
               <div className="form-group">
-                <label>Password</label>
+                <label>Password *</label>
                 <div className="password-input">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -516,6 +600,7 @@ function Navbar() {
                     onChange={(e) => handleInputChange('password', e.target.value)}
                     className={errors.password ? 'error' : ''}
                     placeholder="Create your password"
+                    required
                   />
                   <button 
                     type="button" 
@@ -534,13 +619,14 @@ function Navbar() {
               </div>
 
               <div className="form-group">
-                <label>Confirm Password</label>
+                <label>Confirm Password *</label>
                 <input
                   type={showPassword ? "text" : "password"}
                   value={formData.confirmPassword}
                   onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
                   className={errors.confirmPassword ? 'error' : ''}
                   placeholder="Confirm your password"
+                  required
                 />
                 {errors.confirmPassword && <span className="error-text">{errors.confirmPassword}</span>}
               </div>
@@ -572,6 +658,7 @@ function Navbar() {
                     value={formData.firstName}
                     onChange={(e) => handleInputChange('firstName', e.target.value)}
                     placeholder="First name"
+                    required
                   />
                 </div>
                 <div className="form-group">
@@ -581,6 +668,7 @@ function Navbar() {
                     value={formData.lastName}
                     onChange={(e) => handleInputChange('lastName', e.target.value)}
                     placeholder="Last name"
+                    required
                   />
                 </div>
               </div>
@@ -604,10 +692,11 @@ function Navbar() {
 
             <form className="auth-form" onSubmit={handleSignUpStep4}>
               <div className="form-group">
-                <label>Gender</label>
+                <label>Gender *</label>
                 <select
                   value={formData.gender}
                   onChange={(e) => handleInputChange('gender', e.target.value)}
+                  required
                 >
                   <option value="">Select Gender</option>
                   <option value="male">Male</option>
@@ -623,7 +712,14 @@ function Navbar() {
                   type="date"
                   value={formData.dob}
                   onChange={(e) => handleInputChange('dob', e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
                 />
+                {formData.dob && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--secondary-text)', marginTop: '0.25rem' }}>
+                    Age: {calculateAge(formData.dob)} years
+                  </div>
+                )}
+                {errors.dob && <span className="error-text">{errors.dob}</span>}
               </div>
 
               <div className="form-group checkbox-group">
@@ -632,16 +728,17 @@ function Navbar() {
                   id="agreeTerms"
                   checked={formData.agreeTerms}
                   onChange={(e) => handleInputChange('agreeTerms', e.target.checked)}
+                  required
                 />
                 <label htmlFor="agreeTerms">
-                  I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
+                  I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a> *
                 </label>
               </div>
 
               <button 
                 type="submit" 
                 className="auth-btn primary"
-                disabled={!formData.gender || !formData.dob || !formData.agreeTerms || isSendingCode}
+                disabled={!formData.gender || !formData.agreeTerms || isSendingCode}
               >
                 {isSendingCode ? 'Sending Code...' : 'Continue'}
               </button>
@@ -692,7 +789,7 @@ function Navbar() {
               </button>
 
               <div className="resend-code">
-                Didn't receive a code? <button type="button">Resend Code</button>
+                Didn't receive a code? <button type="button" onClick={handleResendVerification}>Resend Code</button>
               </div>
             </form>
           </motion.div>
@@ -708,11 +805,13 @@ function Navbar() {
       <>
         <nav className={`navbar ${showAuthForm ? 'hidden' : ''}`}>
           <div className="nav-container">
+            {/* Logo */}
             <Link to="/" className="nav-logo" onClick={() => setMobileMenuOpen(false)}>
               <FaCoffee className="logo-icon" />
               <span>Rerendet Coffee</span>
             </Link>
 
+            {/* Navigation Menu */}
             <div className={`nav-menu ${mobileMenuOpen ? 'active' : ''}`}>
               <a href="#features" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
                 Our Coffee
@@ -731,7 +830,9 @@ function Navbar() {
               </a>
             </div>
 
+            {/* Navigation Actions */}
             <div className="nav-actions">
+              {/* Theme Toggle */}
               <button 
                 className="theme-toggle"
                 onClick={toggleTheme}
@@ -740,17 +841,7 @@ function Navbar() {
                 {darkMode ? <FaSun /> : <FaMoon />}
               </button>
 
-              {/* Quick Account Access for logged-in users */}
-              {user && (
-                <Link 
-                  to="/account" 
-                  className="account-quick-access"
-                  title="My Account"
-                >
-                  <FaUserCircle />
-                </Link>
-              )}
-
+              {/* SINGLE Account Section - No duplicate icons */}
               <div className="account-section">
                 <button 
                   className="account-trigger"
@@ -777,8 +868,8 @@ function Navbar() {
                         <>
                           <div className="account-header">
                             <div className="account-avatar">
-                              {user.picture ? (
-                                <img src={user.picture} alt={user.name} />
+                              {user.profilePicture ? (
+                                <img src={user.profilePicture} alt={user.firstName} />
                               ) : (
                                 <FaUserCircle />
                               )}
@@ -858,12 +949,14 @@ function Navbar() {
                 </AnimatePresence>
               </div>
 
+              {/* Cart Icon */}
               <div className="cart-action" onClick={() => setIsCartOpen(true)}>
                 <div className="cart-count">{cartCount}</div>
                 <FaShoppingBag />
               </div>
             </div>
 
+            {/* Mobile Menu Toggle */}
             <div className="mobile-toggle" onClick={toggleMobileMenu}>
               {mobileMenuOpen ? <FaTimes /> : <FaBars />}
             </div>

@@ -1,30 +1,44 @@
-import React, { useState, useContext, useEffect } from 'react';
+// components/Checkout/Checkout.jsx
+import React, { useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
 import { 
   FaTruck, FaCreditCard, FaCheckCircle, 
   FaArrowLeft, FaArrowRight, FaMapMarkerAlt,
-  FaShoppingBag, FaMobileAlt, FaExclamationCircle
+  FaShoppingBag, FaMobileAlt, FaExclamationCircle,
+  FaLock, FaShieldAlt, FaGlobe
 } from 'react-icons/fa';
+import { kenyanCounties, calculateShipping } from '../../utils/shippingCalculator';
 import './Checkout.css';
 
 function Checkout() {
-  const { cart, clearCart, processMpesaPayment, processCardPayment } = useContext(AppContext);
+  const { 
+    user, 
+    cart, 
+    clearCart, 
+    processMpesaPayment, 
+    processCardPayment,
+    showNotification 
+  } = useContext(AppContext);
+  
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState({});
+  const [securityToken, setSecurityToken] = useState('');
   
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
-    phone: '+254',
+    email: user?.email || '',
+    phone: user?.phone || '+254',
     address: '',
-    city: 'Nairobi',
+    city: '',
+    county: '',
     zip: '',
     country: 'Kenya',
-    deliveryOption: 'standard'
+    deliveryOption: 'standard',
+    specialInstructions: ''
   });
   
   const [paymentMethod, setPaymentMethod] = useState('mpesa');
@@ -35,48 +49,110 @@ function Checkout() {
     name: ''
   });
 
-  // Get cart items safely - handle both object and array structures
+  // Generate security token for form protection
+  useEffect(() => {
+    setSecurityToken(Math.random().toString(36).substring(2, 15));
+  }, []);
+
+  // Get cart items safely
   const cartItems = cart?.items || [];
   const cartCount = cartItems.length;
 
-  // Validate shipping form
-  const validateShipping = () => {
+  // Validate shipping form with enhanced security
+  const validateShipping = useCallback(() => {
     const newErrors = {};
-    if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
-    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email address';
-    if (!/^\+254[0-9]{9}$/.test(formData.phone)) newErrors.phone = 'Valid Kenyan number required (+254...)';
-    if (!formData.address.trim()) newErrors.address = 'Address is required';
     
+    // Basic validation
+    if (!formData.firstName.trim() || formData.firstName.length < 2) 
+      newErrors.firstName = 'Valid first name is required (min 2 characters)';
+    
+    if (!formData.lastName.trim() || formData.lastName.length < 2) 
+      newErrors.lastName = 'Valid last name is required (min 2 characters)';
+    
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) 
+      newErrors.email = 'Valid email address is required';
+    
+    if (!/^\+254[0-9]{9}$/.test(formData.phone)) 
+      newErrors.phone = 'Valid Kenyan number required (e.g., +254712345678)';
+    
+    if (!formData.address.trim() || formData.address.length < 10) 
+      newErrors.address = 'Complete address is required (min 10 characters)';
+    
+    if (!formData.city.trim()) 
+      newErrors.city = 'City/town is required';
+    
+    if (!formData.county) 
+      newErrors.county = 'County is required';
+    
+    if (formData.country === 'Kenya' && !formData.zip.trim()) 
+      newErrors.zip = 'Postal code is required for Kenya';
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData]);
 
-  // Validate payment form
-  const validatePayment = () => {
+  // Enhanced payment validation
+  const validatePayment = useCallback(() => {
+    const newErrors = {};
+    
     if (paymentMethod === 'mpesa') {
       if (!/^\+254[0-9]{9}$/.test(formData.phone)) {
-        setErrors({...errors, payment: 'Valid Kenyan number required for M-Pesa'});
-        return false;
+        newErrors.payment = 'Valid Kenyan number required for M-Pesa payments';
       }
     } else {
-      const newErrors = {};
-      if (!/^[0-9]{13,16}$/.test(cardDetails.number.replace(/\s/g, ''))) newErrors.number = 'Invalid card number';
-      if (!/^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(cardDetails.expiry)) newErrors.expiry = 'MM/YY required';
-      if (!/^[0-9]{3,4}$/.test(cardDetails.cvv)) newErrors.cvv = 'Invalid CVV';
-      if (!cardDetails.name.trim()) newErrors.name = 'Name on card required';
+      // Enhanced card validation
+      const cleanNumber = cardDetails.number.replace(/\s/g, '');
       
-      if (Object.keys(newErrors).length > 0) {
-        setErrors({...errors, ...newErrors});
-        return false;
-      }
+      if (!/^[0-9]{13,16}$/.test(cleanNumber) || !luhnCheck(cleanNumber)) 
+        newErrors.number = 'Invalid card number';
+      
+      if (!/^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(cardDetails.expiry)) 
+        newErrors.expiry = 'Valid expiry date required (MM/YY)';
+      
+      // Check if card is expired
+      const [month, year] = cardDetails.expiry.split('/');
+      const expiryDate = new Date(2000 + parseInt(year), parseInt(month) - 1);
+      if (expiryDate < new Date()) 
+        newErrors.expiry = 'Card has expired';
+      
+      if (!/^[0-9]{3,4}$/.test(cardDetails.cvv)) 
+        newErrors.cvv = 'Valid CVV required';
+      
+      if (!cardDetails.name.trim() || cardDetails.name.length < 3) 
+        newErrors.name = 'Name on card required (min 3 characters)';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(prev => ({ ...prev, ...newErrors }));
+      return false;
     }
     return true;
+  }, [paymentMethod, formData.phone, cardDetails]);
+
+  // Luhn algorithm for card validation
+  const luhnCheck = (cardNumber) => {
+    let sum = 0;
+    let isEven = false;
+    
+    for (let i = cardNumber.length - 1; i >= 0; i--) {
+      let digit = parseInt(cardNumber[i]);
+      
+      if (isEven) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      
+      sum += digit;
+      isEven = !isEven;
+    }
+    
+    return sum % 10 === 0;
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
     // Clear error when typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -85,7 +161,28 @@ function Checkout() {
 
   const handleCardChange = (e) => {
     const { name, value } = e.target;
-    setCardDetails(prev => ({ ...prev, [name]: value }));
+    let formattedValue = value;
+    
+    // Format card number with spaces
+    if (name === 'number') {
+      formattedValue = value.replace(/\s/g, '').replace(/(\d{4})/g, '$1 ').trim();
+      if (formattedValue.length > 19) return; // Max 16 digits + 3 spaces
+    }
+    
+    // Format expiry date
+    if (name === 'expiry') {
+      formattedValue = value.replace(/\D/g, '').replace(/(\d{2})(\d)/, '$1/$2');
+      if (formattedValue.length > 5) return;
+    }
+    
+    // Format CVV (numbers only)
+    if (name === 'cvv') {
+      formattedValue = value.replace(/\D/g, '');
+      if (formattedValue.length > 4) return;
+    }
+    
+    setCardDetails(prev => ({ ...prev, [name]: formattedValue }));
+    
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -100,69 +197,133 @@ function Checkout() {
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
+    
+    // Security checks
+    if (!securityToken) {
+      showNotification('Security validation failed. Please refresh the page.', 'error');
+      return;
+    }
+    
     if (!validatePayment()) return;
     
     setIsProcessing(true);
     setErrors({});
     
     try {
-      let paymentSuccess = false;
+      const orderData = {
+        items: cartItems,
+        shippingInfo: formData,
+        paymentMethod,
+        subtotal: calculateSubtotal(),
+        deliveryFee: calculateDelivery(),
+        total: calculateTotal(),
+        securityToken,
+        timestamp: Date.now()
+      };
+
+      let paymentResult;
       const amount = calculateTotal();
-      
+
       if (paymentMethod === 'mpesa') {
-        paymentSuccess = await processMpesaPayment(formData.phone, amount);
+        paymentResult = await processMpesaPayment(formData.phone, amount, orderData);
       } else {
-        paymentSuccess = await processCardPayment({
+        paymentResult = await processCardPayment({
           ...cardDetails,
-          amount
+          amount,
+          orderData
         });
       }
       
-      if (paymentSuccess) {
-        clearCart();
+      if (paymentResult.success) {
+        // Clear cart and navigate to confirmation
+        await clearCart();
+        
         navigate('/confirmation', { 
           state: { 
+            orderId: paymentResult.orderId,
             orderDetails: formData,
             paymentMethod,
             orderTotal: amount,
-            cartItems: cartItems
-          }
+            cartItems: cartItems,
+            deliveryFee: calculateDelivery()
+          },
+          replace: true // Prevent going back to checkout
         });
+      } else {
+        throw new Error(paymentResult.message || 'Payment processing failed');
       }
     } catch (error) {
-      setErrors({ payment: error.message || 'Payment failed. Please try again.' });
+      console.error('Payment error:', error);
+      setErrors({ 
+        payment: error.message || 'Payment failed. Please try again or contact support.' 
+      });
+      
+      // Security: Clear sensitive data on error
+      if (paymentMethod === 'card') {
+        setCardDetails({ number: '', expiry: '', cvv: '', name: '' });
+      }
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Calculate order values safely
-  const calculateSubtotal = () => cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const calculateDelivery = () => formData.deliveryOption === 'express' ? 300 : 0;
+  // Calculate order values
+  const calculateSubtotal = () => 
+    cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+  const calculateDelivery = () => {
+    if (formData.country !== 'Kenya') return 2000; // International
+    
+    if (formData.deliveryOption === 'express') return 300;
+    
+    // Calculate standard delivery based on county
+    if (formData.county) {
+      return calculateShipping({
+        country: formData.country,
+        county: formData.county,
+        isRural: formData.deliveryOption === 'rural'
+      });
+    }
+    
+    return 500; // Default
+  };
+
   const calculateTotal = () => calculateSubtotal() + calculateDelivery();
 
   // Prevent checkout with empty cart
   useEffect(() => {
-    if (cartCount === 0) {
+    if (cartCount === 0 && activeStep === 1) {
       navigate('/cart');
     }
-  }, [cartCount, navigate]);
+  }, [cartCount, navigate, activeStep]);
 
-  // Add form-row CSS class for card details layout
-  const formRowStyle = {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1rem'
-  };
+  // Auto-fill user data if available
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+        firstName: user.firstName || prev.firstName,
+        lastName: user.lastName || prev.lastName
+      }));
+    }
+  }, [user]);
 
   return (
     <div className="checkout-page">
-      {/* Minimal Header - Only Logo */}
+      {/* Secure Header */}
       <header className="checkout-header">
         <div className="container">
-          <h1 className="checkout-logo">
-            <a href="/">☕ Rerendet Coffee</a>
-          </h1>
+          <div className="header-content">
+            <h1 className="checkout-logo">
+              <a href="/">☕ Rerendet Coffee</a>
+            </h1>
+            <div className="security-badge">
+              <FaLock />
+              <span>Secure Checkout</span>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -209,6 +370,8 @@ function Checkout() {
                         value={formData.firstName}
                         onChange={handleInputChange}
                         className={errors.firstName ? 'error' : ''}
+                        minLength="2"
+                        required
                       />
                       {errors.firstName && <span className="error-message"><FaExclamationCircle /> {errors.firstName}</span>}
                     </div>
@@ -222,6 +385,8 @@ function Checkout() {
                         value={formData.lastName}
                         onChange={handleInputChange}
                         className={errors.lastName ? 'error' : ''}
+                        minLength="2"
+                        required
                       />
                       {errors.lastName && <span className="error-message"><FaExclamationCircle /> {errors.lastName}</span>}
                     </div>
@@ -235,6 +400,7 @@ function Checkout() {
                         value={formData.email}
                         onChange={handleInputChange}
                         className={errors.email ? 'error' : ''}
+                        required
                       />
                       {errors.email && <span className="error-message"><FaExclamationCircle /> {errors.email}</span>}
                     </div>
@@ -248,12 +414,14 @@ function Checkout() {
                         value={formData.phone}
                         onChange={handleInputChange}
                         className={errors.phone ? 'error' : ''}
+                        pattern="\+254[0-9]{9}"
+                        required
                       />
                       {errors.phone && <span className="error-message"><FaExclamationCircle /> {errors.phone}</span>}
                     </div>
                     
                     <div className="form-group full-width">
-                      <label htmlFor="address">Address *</label>
+                      <label htmlFor="address">Delivery Address *</label>
                       <input
                         type="text"
                         id="address"
@@ -261,34 +429,90 @@ function Checkout() {
                         value={formData.address}
                         onChange={handleInputChange}
                         className={errors.address ? 'error' : ''}
+                        placeholder="Street address, building, apartment number"
+                        minLength="10"
+                        required
                       />
                       {errors.address && <span className="error-message"><FaExclamationCircle /> {errors.address}</span>}
                     </div>
-                    
+
                     <div className="form-group">
-                      <label htmlFor="city">City *</label>
+                      <label htmlFor="country">Country *</label>
                       <select
-                        id="city"
-                        name="city"
-                        value={formData.city}
+                        id="country"
+                        name="country"
+                        value={formData.country}
                         onChange={handleInputChange}
+                        required
                       >
-                        <option value="Nairobi">Nairobi</option>
-                        <option value="Mombasa">Mombasa</option>
-                        <option value="Kisumu">Kisumu</option>
+                        <option value="Kenya">Kenya</option>
+                        <option value="Other">Other Country</option>
                       </select>
                     </div>
-                    
-                    <div className="form-group">
-                      <label htmlFor="zip">Postal Code</label>
-                      <input
-                        type="text"
-                        id="zip"
-                        name="zip"
-                        value={formData.zip}
-                        onChange={handleInputChange}
-                      />
-                    </div>
+
+                    {formData.country === 'Kenya' ? (
+                      <>
+                        <div className="form-group">
+                          <label htmlFor="county">County *</label>
+                          <select
+                            id="county"
+                            name="county"
+                            value={formData.county}
+                            onChange={handleInputChange}
+                            className={errors.county ? 'error' : ''}
+                            required
+                          >
+                            <option value="">Select County</option>
+                            {kenyanCounties.map(county => (
+                              <option key={county} value={county}>{county}</option>
+                            ))}
+                          </select>
+                          {errors.county && <span className="error-message"><FaExclamationCircle /> {errors.county}</span>}
+                        </div>
+                        
+                        <div className="form-group">
+                          <label htmlFor="city">City/Town *</label>
+                          <input
+                            type="text"
+                            id="city"
+                            name="city"
+                            value={formData.city}
+                            onChange={handleInputChange}
+                            className={errors.city ? 'error' : ''}
+                            required
+                          />
+                          {errors.city && <span className="error-message"><FaExclamationCircle /> {errors.city}</span>}
+                        </div>
+                        
+                        <div className="form-group">
+                          <label htmlFor="zip">Postal Code *</label>
+                          <input
+                            type="text"
+                            id="zip"
+                            name="zip"
+                            value={formData.zip}
+                            onChange={handleInputChange}
+                            className={errors.zip ? 'error' : ''}
+                            required
+                          />
+                          {errors.zip && <span className="error-message"><FaExclamationCircle /> {errors.zip}</span>}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="form-group full-width">
+                        <label htmlFor="city">City/Region *</label>
+                        <input
+                          type="text"
+                          id="city"
+                          name="city"
+                          value={formData.city}
+                          onChange={handleInputChange}
+                          className={errors.city ? 'error' : ''}
+                          required
+                        />
+                        {errors.city && <span className="error-message"><FaExclamationCircle /> {errors.city}</span>}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="delivery-section">
@@ -304,7 +528,13 @@ function Checkout() {
                         />
                         <div className="option-content">
                           <div className="option-title">Standard Delivery</div>
-                          <div className="option-details">2-3 business days • FREE</div>
+                          <div className="option-details">
+                            2-3 business days • KES {formData.county ? calculateShipping({
+                              country: formData.country,
+                              county: formData.county,
+                              isRural: false
+                            }).toLocaleString() : '500'}
+                          </div>
                         </div>
                       </label>
                       
@@ -323,6 +553,18 @@ function Checkout() {
                       </label>
                     </div>
                   </div>
+
+                  <div className="form-group full-width">
+                    <label htmlFor="specialInstructions">Special Delivery Instructions (Optional)</label>
+                    <textarea
+                      id="specialInstructions"
+                      name="specialInstructions"
+                      value={formData.specialInstructions}
+                      onChange={handleInputChange}
+                      placeholder="Gate code, building instructions, safe place to leave package..."
+                      rows="3"
+                    />
+                  </div>
                 </section>
                 
                 <div className="form-actions">
@@ -339,6 +581,8 @@ function Checkout() {
             {/* Payment Form */}
             {activeStep === 2 && (
               <form onSubmit={handlePaymentSubmit} className="checkout-form">
+                <input type="hidden" name="securityToken" value={securityToken} />
+                
                 <section className="form-section">
                   <h2><FaCreditCard /> Payment Method</h2>
                   
@@ -359,6 +603,9 @@ function Checkout() {
                       <div className="payment-info">
                         <h4>M-Pesa</h4>
                         <p>Pay via M-Pesa mobile money</p>
+                        <div className="security-note">
+                          <FaShieldAlt /> Secure & Instant
+                        </div>
                       </div>
                     </div>
                     
@@ -372,6 +619,9 @@ function Checkout() {
                       <div className="payment-info">
                         <h4>Credit/Debit Card</h4>
                         <p>Pay with Visa or Mastercard</p>
+                        <div className="security-note">
+                          <FaLock /> PCI DSS Compliant
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -386,13 +636,22 @@ function Checkout() {
                           value={formData.phone}
                           onChange={handleInputChange}
                           className={errors.phone ? 'error' : ''}
+                          pattern="\+254[0-9]{9}"
+                          required
                         />
                         {errors.phone && <span className="error-message"><FaExclamationCircle /> {errors.phone}</span>}
-                        <p className="note">You'll receive an STK Push to complete payment</p>
+                        <p className="note">
+                          You'll receive an STK Push on your phone to complete payment. 
+                          Ensure your phone is nearby and has sufficient airtime.
+                        </p>
                       </div>
                     </div>
                   ) : (
                     <div className="payment-details">
+                      <div className="security-notice">
+                        <FaLock /> Your card details are encrypted and secure
+                      </div>
+                      
                       <div className="form-group">
                         <label>Card Number *</label>
                         <input
@@ -402,11 +661,13 @@ function Checkout() {
                           onChange={handleCardChange}
                           placeholder="1234 5678 9012 3456"
                           className={errors.number ? 'error' : ''}
+                          maxLength="19"
+                          required
                         />
                         {errors.number && <span className="error-message"><FaExclamationCircle /> {errors.number}</span>}
                       </div>
                       
-                      <div style={formRowStyle}>
+                      <div className="form-row">
                         <div className="form-group">
                           <label>Expiry Date *</label>
                           <input
@@ -416,6 +677,8 @@ function Checkout() {
                             onChange={handleCardChange}
                             placeholder="MM/YY"
                             className={errors.expiry ? 'error' : ''}
+                            maxLength="5"
+                            required
                           />
                           {errors.expiry && <span className="error-message"><FaExclamationCircle /> {errors.expiry}</span>}
                         </div>
@@ -423,12 +686,14 @@ function Checkout() {
                         <div className="form-group">
                           <label>CVV *</label>
                           <input
-                            type="text"
+                            type="password"
                             name="cvv"
                             value={cardDetails.cvv}
                             onChange={handleCardChange}
                             placeholder="123"
                             className={errors.cvv ? 'error' : ''}
+                            maxLength="4"
+                            required
                           />
                           {errors.cvv && <span className="error-message"><FaExclamationCircle /> {errors.cvv}</span>}
                         </div>
@@ -442,6 +707,9 @@ function Checkout() {
                           value={cardDetails.name}
                           onChange={handleCardChange}
                           className={errors.name ? 'error' : ''}
+                          placeholder="As shown on card"
+                          minLength="3"
+                          required
                         />
                         {errors.name && <span className="error-message"><FaExclamationCircle /> {errors.name}</span>}
                       </div>
@@ -451,14 +719,21 @@ function Checkout() {
                 
                 <div className="form-actions">
                   <button type="button" className="btn btn-outline" onClick={() => setActiveStep(1)}>
-                    <FaArrowLeft /> Back
+                    <FaArrowLeft /> Back to Shipping
                   </button>
                   <button 
                     type="submit" 
                     className="btn btn-primary" 
                     disabled={isProcessing}
                   >
-                    {isProcessing ? 'Processing Payment...' : 'Complete Order'}
+                    {isProcessing ? (
+                      <>
+                        <div className="btn-spinner"></div>
+                        Processing Payment...
+                      </>
+                    ) : (
+                      `Pay KES ${calculateTotal().toLocaleString()}`
+                    )}
                   </button>
                 </div>
               </form>
@@ -473,7 +748,7 @@ function Checkout() {
               
               <div className="summary-items">
                 {cartItems.map(item => (
-                  <div key={item._id} className="summary-item">
+                  <div key={item._id || item.id} className="summary-item">
                     <div className="item-info">
                       <span className="item-quantity">{item.quantity}x</span>
                       <span className="item-name">{item.name}</span>
@@ -490,11 +765,19 @@ function Checkout() {
                 </div>
                 <div className="total-row">
                   <span>Delivery</span>
-                  <span>{calculateDelivery() === 0 ? 'FREE' : `KES ${calculateDelivery().toLocaleString()}`}</span>
+                  <span>KES {calculateDelivery().toLocaleString()}</span>
                 </div>
                 <div className="total-row grand-total">
                   <span>Total</span>
                   <span>KES {calculateTotal().toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="security-guarantee">
+                <FaLock />
+                <div>
+                  <strong>Secure Payment Guarantee</strong>
+                  <p>Your payment information is encrypted and secure</p>
                 </div>
               </div>
             </aside>

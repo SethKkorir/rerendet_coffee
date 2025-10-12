@@ -1,22 +1,31 @@
+// authController.js
 import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
 import { generateToken } from '../utils/generateToken.js';
 import sendEmail from '../utils/sendEmail.js';
 
-// Register user - ADD LOADING INDICATOR
+// Register user
 const registerUser = asyncHandler(async (req, res) => {
   const { firstName, lastName, email, password, phone, gender, dateOfBirth } = req.body;
   console.log('🚀 Registration attempt for:', email);
 
-  // Simulate processing delay for better UX
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  // Validate age if dateOfBirth is provided
+  if (dateOfBirth) {
+    const age = Math.floor((new Date() - new Date(dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000));
+    if (age < 13) {
+      res.status(400);
+      throw new Error('You must be at least 13 years old to create an account');
+    }
+  }
 
+  // Check if user exists
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     res.status(400);
     throw new Error('User already exists with this email');
   }
 
+  // Create user
   const user = await User.create({
     firstName,
     lastName,
@@ -27,6 +36,7 @@ const registerUser = asyncHandler(async (req, res) => {
     dateOfBirth: dateOfBirth || null
   });
 
+  // Generate and send verification code
   const verificationCode = user.generateVerificationCode();
   await user.save({ validateBeforeSave: false });
 
@@ -174,19 +184,53 @@ const verifyEmail = asyncHandler(async (req, res) => {
   });
 });
 
-// Login user
+// Login user with security features
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const user = await User.findOne({ email }).select('+password');
 
-  if (!user || !(await user.comparePassword(password))) {
+  // Find user with password and security fields
+  const user = await User.findOne({ email }).select('+password +loginAttempts +lockUntil');
+
+  if (!user) {
+    // Simulate processing time to prevent timing attacks
+    await new Promise(resolve => setTimeout(resolve, 1000));
     res.status(401);
     throw new Error('Invalid email or password');
   }
-  if (!user.isVerified) {
-    res.status(401);
-    throw new Error('Please verify your email before logging in');
+
+  // Check if account is locked
+  if (user.lockUntil && user.lockUntil > Date.now()) {
+    res.status(423);
+    throw new Error('Account temporarily locked due to too many failed attempts. Please try again later.');
   }
+
+  // Verify password
+  const isPasswordValid = await user.comparePassword(password);
+  
+  if (!isPasswordValid) {
+    // Increment failed attempts
+    await user.incrementLoginAttempts();
+    
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    res.status(401);
+    throw new Error('Invalid email or password');
+  }
+
+  // Reset login attempts on successful login
+  await user.resetLoginAttempts();
+
+  // Check if email is verified
+  if (!user.isVerified) {
+    res.status(403);
+    throw new Error('Please verify your email address before logging in. Check your email for the verification code.');
+  }
+
+  // Update last login
+  user.lastLogin = new Date();
+  await user.save();
+
+  // Generate JWT token
   const token = generateToken(user._id);
 
   res.json({
@@ -205,6 +249,87 @@ const loginUser = asyncHandler(async (req, res) => {
       }
     }
   });
+});
+
+// Resend verification code
+const resendVerificationCode = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  
+  const user = await User.findOne({ email });
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found with this email');
+  }
+
+  if (user.isVerified) {
+    res.status(400);
+    throw new Error('Email is already verified');
+  }
+
+  const verificationCode = user.generateVerificationCode();
+  await user.save({ validateBeforeSave: false });
+
+  try {
+    console.log('📧 Resending verification email to:', email);
+    
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #10b981, #3b82f6); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+          .code { background: white; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; border: 2px dashed #10b981; }
+          .code-number { font-size: 2.5rem; font-weight: bold; color: #10b981; letter-spacing: 5px; }
+          .footer { text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 0.9rem; }
+          .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>☕ Rerendet Coffee</h1>
+          <p>New Verification Code</p>
+        </div>
+        <div class="content">
+          <h2>Hello ${user.firstName}!</h2>
+          <p>You requested a new verification code. Here it is:</p>
+          <div class="code">
+            <div class="code-number">${verificationCode}</div>
+          </div>
+          <div class="warning">
+            <strong>⚠️ This code will expire in 10 minutes.</strong>
+          </div>
+          <p>Enter this code to verify your account and start exploring our premium coffee selection.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Rerendet Coffee. All rights reserved.</p>
+          <p>Nakuru, Kenya</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await sendEmail({
+      email: user.email,
+      subject: 'New Verification Code - Rerendet Coffee',
+      html: emailHtml
+    });
+
+    console.log('✅ Verification email resent successfully to:', email);
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to your email'
+    });
+
+  } catch (error) {
+    console.error('❌ Email sending failed:', error);
+    res.status(500);
+    throw new Error('Failed to send verification email');
+  }
 });
 
 // Google OAuth login/register
@@ -301,6 +426,15 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
   if (user) {
+    // Validate age if updating dateOfBirth
+    if (req.body.dateOfBirth) {
+      const age = Math.floor((new Date() - new Date(req.body.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000));
+      if (age < 13) {
+        res.status(400);
+        throw new Error('You must be at least 13 years old');
+      }
+    }
+
     user.firstName = req.body.firstName || user.firstName;
     user.lastName = req.body.lastName || user.lastName;
     user.phone = req.body.phone || user.phone;
@@ -433,6 +567,6 @@ export {
   updateUserProfile,
   checkEmail,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  resendVerificationCode
 };
-  

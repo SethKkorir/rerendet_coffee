@@ -1,72 +1,79 @@
 // src/components/Hero/Hero.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import React from 'react';
 import './Hero.css';
 
 const Hero = () => {
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const heroRef = useRef(null);
-  
-  const slides = [
-    {
-      image: "https://via.placeholder.com/500x400?text=Premium+Coffee",
-      alt: "Premium Coffee"
-    },
-    {
-      image: "https://via.placeholder.com/500x400?text=Signature+Blend",
-      alt: "Signature Blend"
-    },
-    {
-      image: "https://via.placeholder.com/500x400?text=Organic+Beans",
-      alt: "Organic Beans"
-    }
-  ];
-
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
-  };
-
-  // Auto slide every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(nextSlide, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <section id="hero" className="hero" ref={heroRef}>
-      <div className="container">
+    <section id="home" className="hero">
+      <div className="hero-container">
+        {/* Background Elements */}
+        <div className="hero-bg">
+          <div className="bg-coffee-bean bean-1"></div>
+          <div className="bg-coffee-bean bean-2"></div>
+          <div className="bg-coffee-bean bean-3"></div>
+          <div className="bg-coffee-bean bean-4"></div>
+        </div>
+
+        {/* Left Content */}
         <div className="hero-content">
-          <h1 className="fade-in">Craft Coffee, Farm to Cup</h1>
-          <p className="fade-in">Experience the finest specialty coffee, sustainably grown at high altitude in the Southern Rift of Bomet, Kenya.</p>
-          <div className="cta-buttons fade-in">
-            <a href="#coffee-shop" className="btn primary">Shop Now</a>
-            <a href="#features" className="btn secondary">Learn More</a>
+          <h1 className="hero-title">
+            Enjoy Your
+            <span className="title-accent">Morning Coffee</span>
+          </h1>
+          
+          <div className="coffee-text">
+            <span className="coffee-word">COFFEE</span>
+            <span className="coffee-word">COFFEE</span>
+          </div>
+
+          <p className="hero-description">
+            Boost your productivity and build your mood with a glass of coffee 
+            in the morning, 100% natural from garden.
+          </p>
+
+          <div className="hero-actions">
+            <button className="btn-primary">
+              Order Now
+            </button>
+            
+            <div className="price-tag">
+              <span className="start-text">Start At</span>
+              <span className="price">$7.99</span>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="hero-stats">
+            <div className="stat">
+              <div className="stat-number">1K+</div>
+              <div className="stat-label">Reviews</div>
+            </div>
+            
+            <div className="stat">
+              <div className="stat-number">3k+</div>
+              <div className="stat-label">Best Sell</div>
+            </div>
+            
+            <div className="stat">
+              <div className="stat-number">150+</div>
+              <div className="stat-label">Menu</div>
+            </div>
           </div>
         </div>
-        
-        <div className="hero-carousel fade-in">
-          <div className="carousel-inner" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
-            {slides.map((slide, index) => (
-              <div 
-                key={index} 
-                className={`carousel-item ${index === currentSlide ? 'active' : ''}`}
-              >
-                <img src={slide.image} alt={slide.alt} />
-              </div>
-            ))}
-          </div>
-          
-          <div className="carousel-controls">
-            <button className="carousel-prev" onClick={prevSlide}>
-              <FaChevronLeft />
-            </button>
-            <button className="carousel-next" onClick={nextSlide}>
-              <FaChevronRight />
-            </button>
+
+        {/* Right Content - Coffee Image */}
+        <div className="hero-visual">
+          <div className="coffee-cup">
+            <img 
+              src="/api/placeholder/400/500?text=Coffee+Cup" 
+              alt="Morning Coffee"
+              className="coffee-image"
+            />
+            <div className="coffee-steam">
+              <div className="steam-1"></div>
+              <div className="steam-2"></div>
+              <div className="steam-3"></div>
+            </div>
           </div>
         </div>
       </div>
