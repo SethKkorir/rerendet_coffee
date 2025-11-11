@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Navbar from './components/Navbar/Navbar';
 import Hero from './components/Hero/Hero';
@@ -13,12 +13,18 @@ import Footer from './components/Footer/Footer';
 import CartSidebar from './components/Cart/CartSidebar';
 import { MpesaModal, CardModal } from './components/Modals/PaymentModal';
 import BackToTop from './components/BackToTop/BackToTop';
-import AdminDashboard from './components/Admin/AdminDashboard';
-import AdminLogin from './components/Admin/AdminLogin';
+import AdminLayout from './components/Admin/AdminLayout';
+import AdminRoute from './components/Admin/AdminRoute';
+import Dashboard from './components/Admin/Dashboard';
+import OrdersManagement from './components/Admin/OrdersManagement';
+import ProductsManagement from './components/Admin/ProductsManagement';
+import UsersManagement from './components/Admin/UsersManagement';
+// import ContactsManagement from './components/Admin/ContactsManagement';
+import Analytics from './components/Admin/Analytics';
+import Settings from './components/Admin/Settings';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Checkout from './components/Checkout/Checkout';
-// import Account from './pages/Account';
 import AccountDashboard from './components/Account/AccountDashboard';
 import Orders from './pages/Orders';
 import AOS from 'aos';
@@ -28,11 +34,6 @@ import './App.css';
 import Alert from './components/Alert/Alert';
 
 function App() {
-  const [isAdmin, setIsAdmin] = useState(() => {
-    // Check for admin session on initial load
-    return localStorage.getItem('adminSession') === 'true';
-  });
-
   useEffect(() => {
     AOS.init({ duration: 800, once: true, easing: 'ease-in-out' });
 
@@ -53,21 +54,12 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleAdminLogin = () => {
-    localStorage.setItem('adminSession', 'true');
-    setIsAdmin(true);
-  };
-
-  const handleAdminLogout = () => {
-    localStorage.removeItem('adminSession');
-    setIsAdmin(false);
-  };
-
   return (
     <AppProvider>
       <div className="App">
         <Navbar />
         <Routes>
+          {/* Public Routes */}
           <Route
             path="/"
             element={
@@ -88,21 +80,66 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
           <Route path="/checkout" element={<Checkout />} />
-          <Route 
-            path="/admin" 
-            element={
-              isAdmin 
-                ? <AdminDashboard onLogout={handleAdminLogout} /> 
-                : <AdminLogin onLogin={handleAdminLogin} />
-            } 
-          />
-       <Route path="/account" element={<AccountDashboard />} />
+          <Route path="/account" element={<AccountDashboard />} />
           <Route path="/orders" element={<Orders />} />
 
+          {/* Admin Routes */}
+          <Route path="/admin" element={
+            <AdminRoute>
+              <AdminLayout>
+                <Dashboard />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/orders" element={
+            <AdminRoute>
+              <AdminLayout>
+                <OrdersManagement />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/products" element={
+            <AdminRoute>
+              <AdminLayout>
+                <ProductsManagement />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/users" element={
+            <AdminRoute>
+              <AdminLayout>
+                <UsersManagement />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          {/* <Route path="/admin/contacts" element={
+            <AdminRoute>
+              <AdminLayout>
+                <ContactsManagement />
+              </AdminLayout>
+            </AdminRoute>
+          } /> */}
+          <Route path="/admin/analytics" element={
+            <AdminRoute>
+              <AdminLayout>
+                <Analytics />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/settings" element={
+            <AdminRoute>
+              <AdminLayout>
+                <Settings />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+
+          {/* Redirect to home for unknown routes */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 
         <CartSidebar />
-        <Alert /> {/* Use only Alert component - remove Notification */}
+        <Alert />
         <MpesaModal />
         <CardModal />
         <BackToTop />
