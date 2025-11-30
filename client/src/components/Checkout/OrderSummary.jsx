@@ -1,50 +1,27 @@
-// src/components/Checkout/OrderSummary.jsx
 import React from 'react';
-import { FaShoppingBag, FaGift } from 'react-icons/fa';
+import './OrderSummary.css';
 
-const OrderSummary = ({ cart, deliveryOption }) => {
-  const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const deliveryFee = deliveryOption === 'express' ? 300 : 0;
-  const total = subtotal + deliveryFee;
-
+export default function OrderSummary({ cart = [], subtotal = 0, shippingCost = 0 }) {
+  const total = subtotal + shippingCost;
   return (
-    <div className="order-summary">
-      <h3><FaShoppingBag /> Order Summary</h3>
-      
-      <div className="summary-items">
-        {cart.map(item => (
-          <div key={item.id} className="summary-item">
-            <div className="item-info">
-              <span className="item-quantity">{item.quantity}x</span>
-              <span className="item-name">{item.name}</span>
-            </div>
-            <div className="item-price">KES {item.price * item.quantity}</div>
-          </div>
-        ))}
-      </div>
-      
-      <div className="summary-totals">
-        <div className="summary-row">
-          <span>Subtotal</span>
-          <span>KES {subtotal}</span>
-        </div>
-        <div className="summary-row">
-          <span>Delivery</span>
-          <span>{deliveryFee === 0 ? 'FREE' : `KES ${deliveryFee}`}</span>
-        </div>
-        <div className="summary-row total">
-          <span>Total</span>
-          <span>KES {total}</span>
-        </div>
-      </div>
-      
-      <div className="promo-code">
-        <FaGift />
-        <input type="text" placeholder="Enter promo code" />
-        <button>Apply</button>
-      </div>
-    </div>
+    <aside className="order-summary">
+      <h3>Order summary</h3>
+      {cart.length === 0 ? <p>Your cart is empty</p> : (
+        <ul className="os-items">
+          {cart.map((it, i) => (
+            <li key={it._id || i} className="os-item">
+              <div className="os-left">
+                <div className="os-name">{it.name || it.title}</div>
+                <div className="os-qty">x{it.quantity || 1}</div>
+              </div>
+              <div className="os-right">KES {(it.price || 0) * (it.quantity || 1)}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="os-row"><span>Subtotal</span><span>KES {subtotal}</span></div>
+      <div className="os-row"><span>Shipping</span><span>KES {shippingCost}</span></div>
+      <div className="os-row os-total"><span>Total</span><span>KES {total}</span></div>
+    </aside>
   );
-};
-
-export default OrderSummary;
+}

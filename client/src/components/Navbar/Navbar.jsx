@@ -1,4 +1,3 @@
-// components/Navbar/Navbar.jsx
 import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -168,7 +167,7 @@ function Navbar() {
     }
   };
 
-  // Sign In Handler
+  // Sign In Handler - CUSTOMER ONLY
   const handleSignIn = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -222,7 +221,7 @@ function Navbar() {
     }
   };
 
-  // Sign Up Handlers
+  // Sign Up Handlers - CUSTOMER ONLY
   const handleSignUpStep1 = (e) => {
     e.preventDefault();
     const { email, phone } = formData;
@@ -288,6 +287,7 @@ function Navbar() {
         password,
         gender,
         dateOfBirth: dob || null,
+        userType: 'customer' // FORCE CUSTOMER TYPE
       };
       
       await register(payload);
@@ -332,9 +332,12 @@ function Navbar() {
 
     setIsLoading(true);
     try {
-      await verifyUserEmail(formData.email, code);
-      showNotification(`Welcome, ${user?.firstName}! Your account is verified.`, 'success');
+      const response = await verifyUserEmail(formData.email, code);
+      const verifiedUser = response?.data?.user || user;
+      showNotification(`Welcome, ${verifiedUser?.firstName || formData.firstName}! Your account is verified.`, 'success');
       closeAuthForm();
+      
+      // Always redirect to customer account
       setIsAccountDropdownOpen(true);
     } catch (error) {
       setErrors({ verification: error.response?.data?.message || 'Verification failed. Please try again.' });
@@ -395,7 +398,7 @@ function Navbar() {
     exit: { opacity: 0, scale: 0.95 }
   };
 
-  // Render Auth Forms
+  // Render Auth Forms - CUSTOMER ONLY
   const renderAuthForm = () => {
     if (authMode === 'signin') {
       return (
@@ -406,7 +409,7 @@ function Navbar() {
               Rerendet Coffee
             </div>
             <h2>Welcome Back</h2>
-            <p>Sign in to your account to continue your coffee journey</p>
+            <p>Sign in to your customer account</p>
           </div>
 
           <form className="auth-form" onSubmit={handleSignIn}>
@@ -497,7 +500,7 @@ function Navbar() {
       );
     }
 
-    // Sign Up Steps
+    // Sign Up Steps - CUSTOMER ONLY
     switch(signupStep) {
       case 1:
         return (
@@ -507,7 +510,7 @@ function Navbar() {
                 <FaArrowLeft />
               </button>
               <h2>Join Rerendet Coffee</h2>
-              <p>Create your account to start your coffee adventure</p>
+              <p>Create your customer account to start your coffee adventure</p>
             </div>
 
             <form className="auth-form" onSubmit={handleSignUpStep1}>
@@ -841,7 +844,7 @@ function Navbar() {
                 {darkMode ? <FaSun /> : <FaMoon />}
               </button>
 
-              {/* SINGLE Account Section - No duplicate icons */}
+              {/* Account Section */}
               <div className="account-section">
                 <button 
                   className="account-trigger"

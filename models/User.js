@@ -1,8 +1,9 @@
-// models/User.js
+// models/User.js - WITH EXPLICIT COLLECTION NAME
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
+  // Basic info
   firstName: {
     type: String,
     required: [true, 'First name is required'],
@@ -33,53 +34,56 @@ const userSchema = new mongoose.Schema({
     minlength: [8, 'Password must be at least 8 characters'],
     select: false
   },
+
+  // User type and roles
+  userType: {
+    type: String,
+    enum: ['customer', 'admin'],
+    default: 'customer'
+  },
+  role: {
+    type: String,
+    enum: ['customer', 'admin', 'super-admin'],
+    default: 'customer'
+  },
+
+  // Admin specific fields
+  adminPermissions: {
+    canManageUsers: { type: Boolean, default: false },
+    canManageProducts: { type: Boolean, default: false },
+    canManageOrders: { type: Boolean, default: false },
+    canManageContent: { type: Boolean, default: false }
+  },
+
+  // Account status
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+
+  // Security fields
+  verificationCode: { type: String, select: false },
+  verificationCodeExpires: { type: Date, select: false },
+  resetPasswordToken: { type: String, select: false },
+  resetPasswordExpires: { type: Date, select: false },
+  loginAttempts: { type: Number, default: 0, select: false },
+  lockUntil: { type: Date, select: false },
+  passwordChangedAt: Date,
+
+  // Profile
+  profilePicture: String,
+  dateOfBirth: Date,
   gender: {
     type: String,
     enum: ['male', 'female', 'other', 'prefer-not-to-say'],
     default: 'prefer-not-to-say'
   },
-  dateOfBirth: {
-    type: Date,
-    validate: {
-      validator: function(dob) {
-        if (!dob) return true; // Optional field
-        const age = Math.floor((new Date() - new Date(dob)) / (365.25 * 24 * 60 * 60 * 1000));
-        return age >= 13; // Must be at least 13 years old
-      },
-      message: 'You must be at least 13 years old to create an account'
-    }
-  },
-  isVerified: {
-    type: Boolean,
-    default: false
-  },
-  verificationCode: {
-    type: String,
-    select: false
-  },
-  verificationCodeExpires: {
-    type: Date,
-    select: false
-  },
-  resetPasswordToken: {
-    type: String,
-    select: false
-  },
-  resetPasswordExpires: {
-    type: Date,
-    select: false
-  },
-  googleId: {
-    type: String,
-    sparse: true
-  },
-  profilePicture: {
-    type: String
-  },
-  isAdmin: {
-    type: Boolean,
-    default: false
-  },
+
+  // Shipping info
   shippingInfo: {
     firstName: String,
     lastName: String,
@@ -91,53 +95,25 @@ const userSchema = new mongoose.Schema({
     country: String,
     deliveryOption: String
   },
-  // Security fields
-  loginAttempts: {
-    type: Number,
-    default: 0
-  },
-  lockUntil: Date,
-  lastLogin: Date,
-  passwordChangedAt: Date,
-  
-  // Preferences and loyalty
-  preferences: {
-    favoriteRoast: {
-      type: String,
-      enum: ['light', 'medium', 'dark', ''],
-      default: ''
-    },
-    brewMethod: {
-      type: String,
-      enum: ['espresso', 'pour-over', 'french-press', 'aeropress', ''],
-      default: ''
-    }
-  },
-  loyalty: {
-    points: {
-      type: Number,
-      default: 0
-    },
-    tier: {
-      type: String,
-      enum: ['Bronze', 'Silver', 'Gold', 'Platinum'],
-      default: 'Bronze'
-    },
-    joinedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }
+
+  // Audit and security
+  lastLoginAt: Date,
+  lastActivityAt: Date,
+  tokenVersion: { type: Number, default: 0 }
 }, {
   timestamps: true
 });
 
-// Virtual for account lock
+// Virtuals
 userSchema.virtual('isLocked').get(function() {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
-// Hash password before saving
+userSchema.virtual('fullName').get(function() {
+  return `${this.firstName} ${this.lastName}`;
+});
+
+// Pre-save middleware
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
@@ -145,7 +121,6 @@ userSchema.pre('save', async function(next) {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
     
-    // Update password change timestamp
     if (this.isModified('password') && !this.isNew) {
       this.passwordChangedAt = Date.now();
     }
@@ -156,12 +131,11 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Compare password method
+// Methods
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Generate verification code
 userSchema.methods.generateVerificationCode = function() {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   this.verificationCode = code;
@@ -169,35 +143,6 @@ userSchema.methods.generateVerificationCode = function() {
   return code;
 };
 
-// Security methods
-userSchema.methods.incrementLoginAttempts = async function() {
-  // When we have a lock time and it's expired, reset
-  if (this.lockUntil && this.lockUntil < Date.now()) {
-    return this.updateOne({
-      $set: { loginAttempts: 1 },
-      $unset: { lockUntil: 1 }
-    });
-  }
-  
-  // Otherwise increment
-  const updates = { $inc: { loginAttempts: 1 } };
-  
-  // Lock the account if we've reached max attempts and it's not locked already
-  if (this.loginAttempts + 1 >= 5 && !this.lockUntil) {
-    updates.$set = { lockUntil: Date.now() + 2 * 60 * 60 * 1000 }; // 2 hours
-  }
-  
-  return this.updateOne(updates);
-};
-
-userSchema.methods.resetLoginAttempts = async function() {
-  return this.updateOne({
-    $set: { loginAttempts: 0 },
-    $unset: { lockUntil: 1 }
-  });
-};
-
-// Check if password was changed after token was issued
 userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
   if (this.passwordChangedAt) {
     const changedTimestamp = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
@@ -206,31 +151,6 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
   return false;
 };
 
-// Update loyalty points
-userSchema.methods.updateLoyaltyPoints = async function(points) {
-  this.loyalty.points += points;
-  
-  // Update tier based on points
-  if (this.loyalty.points >= 1000) {
-    this.loyalty.tier = 'Platinum';
-  } else if (this.loyalty.points >= 500) {
-    this.loyalty.tier = 'Gold';
-  } else if (this.loyalty.points >= 100) {
-    this.loyalty.tier = 'Silver';
-  } else {
-    this.loyalty.tier = 'Bronze';
-  }
-  
-  await this.save();
-};
-
-// Calculate age from date of birth
-userSchema.methods.getAge = function() {
-  if (!this.dateOfBirth) return null;
-  return Math.floor((new Date() - new Date(this.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000));
-};
-
-// Remove sensitive information when converting to JSON
 userSchema.methods.toJSON = function() {
   const user = this.toObject();
   delete user.password;
@@ -238,7 +158,12 @@ userSchema.methods.toJSON = function() {
   delete user.verificationCodeExpires;
   delete user.resetPasswordToken;
   delete user.resetPasswordExpires;
+  delete user.loginAttempts;
+  delete user.lockUntil;
   return user;
 };
 
-export default mongoose.model('User', userSchema);
+// EXPLICIT COLLECTION NAME - Try 'users' first, if doesn't work try 'user'
+const User = mongoose.model('User', userSchema, 'users');
+
+export default User;

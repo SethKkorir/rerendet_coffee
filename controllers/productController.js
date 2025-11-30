@@ -1,125 +1,191 @@
 // controllers/productController.js
-import Product from '../models/Product.js';
 import asyncHandler from 'express-async-handler';
+import Product from '../models/Product.js';
 
-// @desc    Fetch all products with filters and search
+// @desc    Get all products
 // @route   GET /api/products
 // @access  Public
 const getProducts = asyncHandler(async (req, res) => {
-  const pageSize = 12;
-  const page = Number(req.query.pageNumber) || 1;
+  const { 
+    category, 
+    search, 
+    featured, 
+    inStock, 
+    page = 1, 
+    limit = 12 
+  } = req.query;
+
+  let filter = { isActive: true };
   
-  // Build filter object
-  const filter = { isActive: true };
+  if (category && category !== 'all') {
+    filter.category = category;
+  }
   
-  // Search keyword
-  if (req.query.keyword) {
+  if (search) {
     filter.$or = [
-      { name: { $regex: req.query.keyword, $options: 'i' } },
-      { description: { $regex: req.query.keyword, $options: 'i' } },
-      { flavorNotes: { $regex: req.query.keyword, $options: 'i' } }
+      { name: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } }
     ];
   }
   
-  // Category filter
-  if (req.query.category) {
-    filter.category = req.query.category;
+  if (featured === 'true') {
+    filter.isFeatured = true;
   }
   
-  // Roast level filter
-  if (req.query.roastLevel) {
-    filter.roastLevel = req.query.roastLevel;
-  }
-  
-  // Price range filter
-  if (req.query.minPrice || req.query.maxPrice) {
-    filter.price = {};
-    if (req.query.minPrice) filter.price.$gte = Number(req.query.minPrice);
-    if (req.query.maxPrice) filter.price.$lte = Number(req.query.maxPrice);
-  }
-  
-  // Sort options
-  let sort = {};
-  switch (req.query.sort) {
-    case 'price_asc':
-      sort = { price: 1 };
-      break;
-    case 'price_desc':
-      sort = { price: -1 };
-      break;
-    case 'newest':
-      sort = { createdAt: -1 };
-      break;
-    case 'rating':
-      sort = { 'ratings.average': -1 };
-      break;
-    default:
-      sort = { createdAt: -1 };
+  if (inStock === 'true') {
+    filter.inStock = true;
+    filter['inventory.stock'] = { $gt: 0 };
   }
 
-  const count = await Product.countDocuments({ ...filter });
-  const products = await Product.find({ ...filter })
-    .sort(sort)
-    .limit(pageSize)
-    .skip(pageSize * (page - 1));
+  const skip = (page - 1) * limit;
+  
+  const [products, total, categories] = await Promise.all([
+    Product.find(filter)
+      .sort({ isFeatured: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit)),
+    Product.countDocuments(filter),
+    Product.distinct('category', { isActive: true })
+  ]);
 
   res.json({
     success: true,
-    data: products,
-    page,
-    pages: Math.ceil(count / pageSize),
-    total: count,
-    filters: {
-      categories: await Product.distinct('category', { isActive: true }),
-      roastLevels: await Product.distinct('roastLevel', { isActive: true })
+    data: {
+      products,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      },
+      categories
     }
   });
 });
 
-// @desc    Fetch single product
+// @desc    Get single product
 // @route   GET /api/products/:id
 // @access  Public
 const getProductById = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
-
-  if (product && product.isActive) {
-    res.json({
-      success: true,
-      data: product
-    });
-  } else {
+  
+  if (!product || !product.isActive) {
     res.status(404);
     throw new Error('Product not found');
   }
+
+  res.json({
+    success: true,
+    data: product
+  });
+});
+
+// @desc    Get featured products
+// @route   GET /api/products/featured/products
+// @access  Public
+const getFeaturedProducts = asyncHandler(async (req, res) => {
+  const products = await Product.find({ 
+    isFeatured: true, 
+    isActive: true,
+    inStock: true 
+  }).limit(8);
+
+  res.json({
+    success: true,
+    data: products
+  });
+});
+
+// @desc    Get products by category
+// @route   GET /api/products/category/:category
+// @access  Public
+const getProductsByCategory = asyncHandler(async (req, res) => {
+  const { category } = req.params;
+  const { limit = 12 } = req.query;
+
+  const products = await Product.find({ 
+    category, 
+    isActive: true,
+    inStock: true 
+  }).limit(parseInt(limit));
+
+  res.json({
+    success: true,
+    data: products
+  });
 });
 
 // @desc    Create a product
 // @route   POST /api/products
 // @access  Private/Admin
 const createProduct = asyncHandler(async (req, res) => {
+  const {
+    name,
+    description,
+    sizes,
+    category,
+    roastLevel,
+    origin,
+    flavorNotes,
+    badge,
+    inventory,
+    tags,
+    isFeatured = false
+  } = req.body;
+
+  // Validate required fields
+  if (!name || !description || !category) {
+    res.status(400);
+    throw new Error('Name, description, and category are required');
+  }
+
+  // Parse sizes
+  let parsedSizes = [];
+  try {
+    parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
+    if (!Array.isArray(parsedSizes) || parsedSizes.length === 0) {
+      throw new Error('At least one size is required');
+    }
+  } catch (error) {
+    res.status(400);
+    throw new Error('Invalid sizes format');
+  }
+
+  // Handle images
+  const images = req.files ? req.files.map(file => ({
+    public_id: file.filename,
+    url: file.path
+  })) : [];
+
   const product = new Product({
-    name: req.body.name,
-    price: req.body.price,
-    description: req.body.description,
-    image: req.body.image,
-    images: req.body.images || [],
-    category: req.body.category,
-    subcategory: req.body.subcategory,
-    brand: req.body.brand,
-    roastLevel: req.body.roastLevel,
-    origin: req.body.origin,
-    flavorNotes: req.body.flavorNotes || [],
-    weight: req.body.weight,
+    name: name.trim(),
+    description: description.trim(),
+    sizes: parsedSizes.map(size => ({
+      size: size.size,
+      price: parseFloat(size.price)
+    })),
+    images,
+    category,
+    roastLevel: category === 'coffee-beans' ? roastLevel : undefined,
+    origin: origin?.trim() || '',
+    flavorNotes: flavorNotes ? 
+      (typeof flavorNotes === 'string' ? 
+        flavorNotes.split(',').map(note => note.trim()).filter(note => note) : 
+        flavorNotes) : [],
+    badge: badge?.trim() || '',
     inventory: {
-      stock: req.body.stock || 0,
-      lowStockAlert: req.body.lowStockAlert || 10
+      stock: parseInt(inventory?.stock) || 0,
+      lowStockAlert: parseInt(inventory?.lowStockAlert) || 5
     },
-    tags: req.body.tags || [],
-    isFeatured: req.body.isFeatured || false,
-    seo: req.body.seo || {}
+    tags: tags ? 
+      (typeof tags === 'string' ? 
+        tags.split(',').map(tag => tag.trim()).filter(tag => tag) : 
+        tags) : [],
+    isFeatured: isFeatured === 'true' || isFeatured === true
   });
 
   const createdProduct = await product.save();
+
   res.status(201).json({
     success: true,
     message: 'Product created successfully',
@@ -133,36 +199,90 @@ const createProduct = asyncHandler(async (req, res) => {
 const updateProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
 
-  if (product) {
-    product.name = req.body.name || product.name;
-    product.price = req.body.price || product.price;
-    product.description = req.body.description || product.description;
-    product.image = req.body.image || product.image;
-    product.images = req.body.images || product.images;
-    product.category = req.body.category || product.category;
-    product.subcategory = req.body.subcategory || product.subcategory;
-    product.brand = req.body.brand || product.brand;
-    product.roastLevel = req.body.roastLevel || product.roastLevel;
-    product.origin = req.body.origin || product.origin;
-    product.flavorNotes = req.body.flavorNotes || product.flavorNotes;
-    product.weight = req.body.weight || product.weight;
-    product.inventory.stock = req.body.stock !== undefined ? req.body.stock : product.inventory.stock;
-    product.inventory.lowStockAlert = req.body.lowStockAlert || product.inventory.lowStockAlert;
-    product.tags = req.body.tags || product.tags;
-    product.isFeatured = req.body.isFeatured !== undefined ? req.body.isFeatured : product.isFeatured;
-    product.isActive = req.body.isActive !== undefined ? req.body.isActive : product.isActive;
-    product.seo = req.body.seo || product.seo;
-
-    const updatedProduct = await product.save();
-    res.json({
-      success: true,
-      message: 'Product updated successfully',
-      data: updatedProduct
-    });
-  } else {
+  if (!product) {
     res.status(404);
     throw new Error('Product not found');
   }
+
+  const {
+    name,
+    description,
+    sizes,
+    category,
+    roastLevel,
+    origin,
+    flavorNotes,
+    badge,
+    inventory,
+    tags,
+    isFeatured
+  } = req.body;
+
+  // Update fields
+  if (name) product.name = name.trim();
+  if (description) product.description = description.trim();
+  if (category) product.category = category;
+  if (roastLevel && category === 'coffee-beans') product.roastLevel = roastLevel;
+  if (origin !== undefined) product.origin = origin?.trim();
+  if (badge !== undefined) product.badge = badge?.trim();
+  if (isFeatured !== undefined) {
+    product.isFeatured = isFeatured === 'true' || isFeatured === true;
+  }
+
+  // Update sizes
+  if (sizes) {
+    let parsedSizes;
+    try {
+      parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
+      if (Array.isArray(parsedSizes) && parsedSizes.length > 0) {
+        product.sizes = parsedSizes.map(size => ({
+          size: size.size,
+          price: parseFloat(size.price)
+        }));
+      }
+    } catch (error) {
+      res.status(400);
+      throw new Error('Invalid sizes format');
+    }
+  }
+
+  // Update inventory
+  if (inventory) {
+    product.inventory = {
+      stock: parseInt(inventory.stock) || product.inventory.stock,
+      lowStockAlert: parseInt(inventory.lowStockAlert) || product.inventory.lowStockAlert
+    };
+  }
+
+  // Update arrays
+  if (flavorNotes !== undefined) {
+    product.flavorNotes = typeof flavorNotes === 'string' ? 
+      flavorNotes.split(',').map(note => note.trim()).filter(note => note) : 
+      flavorNotes;
+  }
+
+  if (tags !== undefined) {
+    product.tags = typeof tags === 'string' ? 
+      tags.split(',').map(tag => tag.trim()).filter(tag => tag) : 
+      tags;
+  }
+
+  // Add new images
+  if (req.files && req.files.length > 0) {
+    const newImages = req.files.map(file => ({
+      public_id: file.filename,
+      url: file.path
+    }));
+    product.images = [...product.images, ...newImages];
+  }
+
+  const updatedProduct = await product.save();
+
+  res.json({
+    success: true,
+    message: 'Product updated successfully',
+    data: updatedProduct
+  });
 });
 
 // @desc    Delete a product
@@ -171,41 +291,110 @@ const updateProduct = asyncHandler(async (req, res) => {
 const deleteProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
 
-  if (product) {
-    // Soft delete by setting isActive to false
-    product.isActive = false;
-    await product.save();
-    
-    res.json({ 
-      success: true,
-      message: 'Product deleted successfully' 
-    });
-  } else {
+  if (!product) {
     res.status(404);
     throw new Error('Product not found');
   }
-});
 
-// @desc    Get featured products
-// @route   GET /api/products/featured
-// @access  Public
-const getFeaturedProducts = asyncHandler(async (req, res) => {
-  const products = await Product.find({ 
-    isFeatured: true, 
-    isActive: true 
-  }).limit(8);
+  // Soft delete
+  product.isActive = false;
+  await product.save();
 
   res.json({
     success: true,
-    data: products
+    message: 'Product deleted successfully'
   });
 });
 
-export { 
-  getProducts, 
-  getProductById, 
-  createProduct, 
-  updateProduct, 
-  deleteProduct, // MAKE SURE THIS IS INCLUDED
-  getFeaturedProducts
+// @desc    Update product stock
+// @route   PATCH /api/products/:id/stock
+// @access  Private/Admin
+const updateProductStock = asyncHandler(async (req, res) => {
+  const { stock } = req.body;
+  
+  const product = await Product.findByIdAndUpdate(
+    req.params.id,
+    { 
+      'inventory.stock': parseInt(stock),
+      inStock: parseInt(stock) > 0
+    },
+    { new: true }
+  );
+
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
+
+  res.json({
+    success: true,
+    message: 'Product stock updated successfully',
+    data: product
+  });
+});
+
+// @desc    Upload product images
+// @route   POST /api/products/:id/images
+// @access  Private/Admin
+const uploadProductImages = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id);
+
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
+
+  if (!req.files || req.files.length === 0) {
+    res.status(400);
+    throw new Error('No images uploaded');
+  }
+
+  const newImages = req.files.map(file => ({
+    public_id: file.filename,
+    url: file.path
+  }));
+
+  product.images = [...product.images, ...newImages];
+  await product.save();
+
+  res.json({
+    success: true,
+    message: 'Images uploaded successfully',
+    data: product.images
+  });
+});
+
+// @desc    Delete product image
+// @route   DELETE /api/products/:id/images
+// @access  Private/Admin
+const deleteProductImage = asyncHandler(async (req, res) => {
+  const { imageUrl } = req.body;
+  const product = await Product.findById(req.params.id);
+
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
+
+  product.images = product.images.filter(img => img.url !== imageUrl);
+  await product.save();
+
+  res.json({
+    success: true,
+    message: 'Image deleted successfully',
+    data: product.images
+  });
+});
+
+export {
+  getProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getFeaturedProducts,
+  getProductsByCategory,
+  updateProductStock,
+  uploadProductImages,
+  deleteProductImage
 };

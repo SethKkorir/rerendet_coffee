@@ -1,68 +1,193 @@
 /* src/components/Admin/AdminLogin.css */
-.admin-login {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.admin-login-page {
   min-height: 100vh;
-  background: #f8f5f2;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
-.login-card {
-  background: white;
-  border-radius: 12px;
-  padding: 2.5rem;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+.admin-login-container {
   width: 100%;
-  max-width: 400px;
-  text-align: center;
+  max-width: 440px;
 }
 
-.login-card h2 {
-  color: #6F4E37;
-  margin-bottom: 1.5rem;
+.admin-login-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border: 1px solid #333;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.logo-icon {
+  font-size: 2rem;
+  background: linear-gradient(135deg, #10b981, #3b82f6);
+  /* -webkit-background-clip: text; */
+  -webkit-text-fill-color: transparent;
+}
+
+.logo h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.login-subtitle {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.error-message {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
-  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #555;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
 }
 
-.form-group input {
-  width: 100%;
-  padding: 0.8rem 1rem;
-  border: 1px solid #ddd;
+.form-input {
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
   border-radius: 8px;
   font-size: 1rem;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.form-input:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
 }
 
 .login-btn {
-  width: 100%;
-  padding: 0.8rem;
-  background: #6F4E37;
+  background: linear-gradient(135deg, #10b981, #059669);
   color: white;
   border: none;
+  padding: 14px 20px;
   border-radius: 8px;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
 }
 
-.login-btn:hover {
-  background: #5a3c2a;
+.login-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
 }
 
-.login-note {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
-  color: #777;
+.login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-btn.loading {
+  background: #9ca3af;
+}
+
+.btn-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.dev-helper {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.credentials-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.credentials-card h4 {
+  margin: 0 0 12px 0;
+  color: #374151;
   font-size: 0.9rem;
+}
+
+.credentials {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.credential-item {
+  display: flex;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.credential-item strong {
+  color: #1f2937;
+  min-width: 60px;
+}
+
+.security-note {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+  font-style: italic;
 }

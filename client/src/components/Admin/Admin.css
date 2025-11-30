@@ -1,0 +1,3 @@
+.admin-page { padding:20px; }
+.admin-table { width:100%; border-collapse:collapse; }
+.admin-table th, .admin-table td { padding:8px 10px; border:1px solid #eee; text-align:left; }

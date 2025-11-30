@@ -1,4 +1,4 @@
-const COUNTY_RATES = {
+export const COUNTY_RATES = {
   Baringo: 600,
   Bomet: 200,
   Bungoma: 500,
@@ -52,7 +52,16 @@ const DEFAULT_COUNTY_RATE = 600;
 const INTERNATIONAL_RATE = 2000;
 
 export function calculateShipping({ country, city }) {
-  if (country !== 'Kenya') return INTERNATIONAL_RATE;
-  if (COUNTY_RATES[city]) return COUNTY_RATES[city];
+  if (!country) return DEFAULT_COUNTY_RATE;
+  if (country.toLowerCase() !== 'kenya') return INTERNATIONAL_RATE;
+  if (!city) return DEFAULT_COUNTY_RATE;
+
+  // Normalize
+  const normalized = city.trim();
+  if (COUNTY_RATES[normalized]) return COUNTY_RATES[normalized];
+  // try case-insensitive match
+  const foundKey = Object.keys(COUNTY_RATES).find(k => k.toLowerCase() === normalized.toLowerCase());
+  if (foundKey) return COUNTY_RATES[foundKey];
+
   return DEFAULT_COUNTY_RATE;
 }

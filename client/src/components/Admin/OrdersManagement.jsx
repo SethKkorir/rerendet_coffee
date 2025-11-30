@@ -1,11 +1,11 @@
 // src/components/Admin/OrdersManagement.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { FaSearch, FaFilter, FaEye, FaEdit, FaShippingFast } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaEye, FaEdit, FaShippingFast, FaSync } from 'react-icons/fa';
 import './OrdersManagement.css';
 
 const OrdersManagement = () => {
-  const { showNotification } = useContext(AppContext);
+  const { showNotification, token } = useContext(AppContext);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -17,6 +17,7 @@ const OrdersManagement = () => {
   const [pagination, setPagination] = useState({});
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -25,8 +26,14 @@ const OrdersManagement = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const queryParams = new URLSearchParams(filters).toString();
+      const queryParams = new URLSearchParams();
+      
+      // Add filters to query params
+      Object.keys(filters).forEach(key => {
+        if (filters[key] && filters[key] !== 'all') {
+          queryParams.append(key, filters[key]);
+        }
+      });
 
       const response = await fetch(`/api/admin/orders?${queryParams}`, {
         headers: {
@@ -40,12 +47,15 @@ const OrdersManagement = () => {
       const data = await response.json();
       
       if (data.success) {
-        setOrders(data.data.orders);
-        setPagination(data.data.pagination);
+        setOrders(data.data.orders || []);
+        setPagination(data.data.pagination || {});
+      } else {
+        throw new Error(data.message || 'Failed to fetch orders');
       }
     } catch (error) {
       console.error('Orders fetch error:', error);
-      showNotification('Failed to load orders', 'error');
+      showNotification(error.message || 'Failed to load orders', 'error');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -53,8 +63,6 @@ const OrdersManagement = () => {
 
   const updateOrderStatus = async (orderId, newStatus, trackingNumber = '') => {
     try {
-      const token = localStorage.getItem('token');
-      
       const response = await fetch(`/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
@@ -77,10 +85,12 @@ const OrdersManagement = () => {
         setShowStatusModal(false);
         setSelectedOrder(null);
         fetchOrders(); // Refresh orders
+      } else {
+        throw new Error(data.message || 'Failed to update order status');
       }
     } catch (error) {
       console.error('Update order status error:', error);
-      showNotification('Failed to update order status', 'error');
+      showNotification(error.message || 'Failed to update order status', 'error');
     }
   };
 
@@ -88,14 +98,38 @@ const OrdersManagement = () => {
     const statusColors = {
       pending: 'orange',
       confirmed: 'blue',
-      shipped: 'purple',
+      processing: 'purple',
+      shipped: 'teal',
       delivered: 'green',
-      cancelled: 'red',
+      cancelled: 'red'
+    };
+
+    const statusLabels = {
+      pending: 'Pending',
+      confirmed: 'Confirmed',
+      processing: 'Processing',
+      shipped: 'Shipped',
+      delivered: 'Delivered',
+      cancelled: 'Cancelled'
+    };
+
+    return (
+      <span className={`status-badge ${statusColors[status] || 'gray'}`}>
+        {statusLabels[status] || status}
+      </span>
+    );
+  };
+
+  const PaymentStatusBadge = ({ status }) => {
+    const statusColors = {
+      pending: 'orange',
+      paid: 'green',
+      failed: 'red',
       refunded: 'gray'
     };
 
     return (
-      <span className={`status-badge ${statusColors[status]}`}>
+      <span className={`status-badge ${statusColors[status] || 'gray'}`}>
         {status}
       </span>
     );
@@ -103,28 +137,57 @@ const OrdersManagement = () => {
 
   const OrderRow = ({ order }) => (
     <tr className="order-row">
-      <td>#{order.orderNumber}</td>
       <td>
-        {order.user?.firstName} {order.user?.lastName}
+        <strong>#{order.orderNumber}</strong>
         <br />
-        <small>{order.user?.email}</small>
+        <small style={{ color: '#666' }}>
+          {new Date(order.createdAt).toLocaleDateString()}
+        </small>
       </td>
-      <td>KES {order.totalAmount?.toLocaleString()}</td>
+      <td>
+        {order.user ? (
+          <>
+            {order.user.firstName} {order.user.lastName}
+            <br />
+            <small>{order.user.email}</small>
+          </>
+        ) : (
+          <span style={{ color: '#999' }}>Guest Order</span>
+        )}
+      </td>
+      <td>
+        <div>
+          {order.shippingAddress?.firstName} {order.shippingAddress?.lastName}
+          <br />
+          <small>{order.shippingAddress?.city}, {order.shippingAddress?.country}</small>
+        </div>
+      </td>
+      <td>
+        KES {order.total?.toLocaleString()}
+        <br />
+        <small style={{ fontSize: '0.8em', color: '#666' }}>
+          {order.paymentMethod}
+        </small>
+      </td>
       <td>
         <StatusBadge status={order.status} />
+        <br />
+        <PaymentStatusBadge status={order.paymentStatus} />
       </td>
-      <td>{new Date(order.createdAt).toLocaleDateString()}</td>
       <td>
         <div className="order-actions">
           <button 
-            className="btn-icon"
-            onClick={() => setSelectedOrder(order)}
+            className="btn-icon info"
+            onClick={() => {
+              setSelectedOrder(order);
+              setShowOrderModal(true);
+            }}
             title="View Details"
           >
             <FaEye />
           </button>
           <button 
-            className="btn-icon"
+            className="btn-icon warning"
             onClick={() => {
               setSelectedOrder(order);
               setShowStatusModal(true);
@@ -136,8 +199,8 @@ const OrdersManagement = () => {
           {order.status === 'confirmed' && (
             <button 
               className="btn-icon primary"
-              onClick={() => updateOrderStatus(order._id, 'shipped', `TRK${Date.now()}`)}
-              title="Mark as Shipped"
+              onClick={() => updateOrderStatus(order._id, 'processing')}
+              title="Start Processing"
             >
               <FaShippingFast />
             </button>
@@ -152,7 +215,12 @@ const OrdersManagement = () => {
       <div className="page-header">
         <h1>Orders Management</h1>
         <div className="header-actions">
-          <button className="btn-primary" onClick={fetchOrders}>
+          <button 
+            className="btn-primary" 
+            onClick={fetchOrders}
+            disabled={loading}
+          >
+            <FaSync className={loading ? 'spinning' : ''} />
             Refresh
           </button>
         </div>
@@ -164,7 +232,7 @@ const OrdersManagement = () => {
           <FaSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Search orders..."
+            placeholder="Search by order number, customer name..."
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
           />
@@ -177,6 +245,7 @@ const OrdersManagement = () => {
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
           <option value="confirmed">Confirmed</option>
+          <option value="processing">Processing</option>
           <option value="shipped">Shipped</option>
           <option value="delivered">Delivered</option>
           <option value="cancelled">Cancelled</option>
@@ -191,29 +260,37 @@ const OrdersManagement = () => {
             <p>Loading orders...</p>
           </div>
         ) : (
-          <table className="orders-table">
-            <thead>
-              <tr>
-                <th>Order #</th>
-                <th>Customer</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map(order => (
-                <OrderRow key={order._id} order={order} />
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {!loading && orders.length === 0 && (
-          <div className="empty-state">
-            <p>No orders found</p>
-          </div>
+          <>
+            <table className="orders-table">
+              <thead>
+                <tr>
+                  <th>Order #</th>
+                  <th>Customer</th>
+                  <th>Shipping Address</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map(order => (
+                  <OrderRow key={order._id} order={order} />
+                ))}
+              </tbody>
+            </table>
+            
+            {orders.length === 0 && (
+              <div className="empty-state">
+                <p>No orders found</p>
+                <button 
+                  className="btn-outline" 
+                  onClick={fetchOrders}
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -229,7 +306,7 @@ const OrdersManagement = () => {
           </button>
           
           <span className="page-info">
-            Page {filters.page} of {pagination.pages}
+            Page {filters.page} of {pagination.pages} ({pagination.total} total orders)
           </span>
           
           <button
@@ -240,6 +317,17 @@ const OrdersManagement = () => {
             Next
           </button>
         </div>
+      )}
+
+      {/* Order Details Modal */}
+      {showOrderModal && selectedOrder && (
+        <OrderDetailsModal
+          order={selectedOrder}
+          onClose={() => {
+            setShowOrderModal(false);
+            setSelectedOrder(null);
+          }}
+        />
       )}
 
       {/* Status Update Modal */}
@@ -257,7 +345,119 @@ const OrdersManagement = () => {
   );
 };
 
-// Status Update Modal Component
+// Order Details Modal Component
+const OrderDetailsModal = ({ order, onClose }) => {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Order Details - #{order.orderNumber}</h3>
+          <button className="close-modal" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="order-details">
+          {/* Customer Information */}
+          <div className="detail-section">
+            <h4>Customer Information</h4>
+            <div className="detail-grid">
+              <div>
+                <strong>Name:</strong> {order.user?.firstName} {order.user?.lastName}
+              </div>
+              <div>
+                <strong>Email:</strong> {order.user?.email}
+              </div>
+              <div>
+                <strong>Phone:</strong> {order.shippingAddress?.phone}
+              </div>
+            </div>
+          </div>
+
+          {/* Shipping Address */}
+          <div className="detail-section">
+            <h4>Shipping Address</h4>
+            <div className="shipping-address">
+              {order.shippingAddress?.firstName} {order.shippingAddress?.lastName}<br />
+              {order.shippingAddress?.address}<br />
+              {order.shippingAddress?.city}, {order.shippingAddress?.country}<br />
+              {order.shippingAddress?.postalCode && `Postal Code: ${order.shippingAddress.postalCode}`}
+            </div>
+          </div>
+
+          {/* Order Items */}
+          <div className="detail-section">
+            <h4>Order Items</h4>
+            <div className="order-items">
+              {order.items?.map((item, index) => (
+                <div key={index} className="order-item">
+                  <div className="item-image">
+                    <img src={item.image} alt={item.name} />
+                  </div>
+                  <div className="item-details">
+                    <div className="item-name">{item.name}</div>
+                    <div className="item-price">KES {item.price?.toLocaleString()}</div>
+                    <div className="item-quantity">Qty: {item.quantity}</div>
+                    <div className="item-total">KES {(item.price * item.quantity)?.toLocaleString()}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Order Summary */}
+          <div className="detail-section">
+            <h4>Order Summary</h4>
+            <div className="order-summary">
+              <div className="summary-row">
+                <span>Subtotal:</span>
+                <span>KES {order.subtotal?.toLocaleString()}</span>
+              </div>
+              <div className="summary-row">
+                <span>Shipping:</span>
+                <span>KES {order.shippingCost?.toLocaleString()}</span>
+              </div>
+              <div className="summary-row total">
+                <span>Total:</span>
+                <span>KES {order.total?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Order Meta */}
+          <div className="detail-section">
+            <h4>Order Information</h4>
+            <div className="detail-grid">
+              <div>
+                <strong>Order Date:</strong> {new Date(order.createdAt).toLocaleString()}
+              </div>
+              <div>
+                <strong>Status:</strong> <span className={`status-badge ${order.status}`}>{order.status}</span>
+              </div>
+              <div>
+                <strong>Payment Status:</strong> <span className={`status-badge ${order.paymentStatus}`}>{order.paymentStatus}</span>
+              </div>
+              <div>
+                <strong>Payment Method:</strong> {order.paymentMethod}
+              </div>
+              {order.transactionId && (
+                <div>
+                  <strong>Transaction ID:</strong> {order.transactionId}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn-primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Status Update Modal Component (keep the existing one)
 const StatusUpdateModal = ({ order, onUpdate, onClose }) => {
   const [status, setStatus] = useState(order.status);
   const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber || '');
@@ -302,6 +502,7 @@ const StatusUpdateModal = ({ order, onUpdate, onClose }) => {
             >
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
+              <option value="processing">Processing</option>
               <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
               <option value="cancelled">Cancelled</option>

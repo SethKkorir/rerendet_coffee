@@ -1,4 +1,4 @@
-// models/Order.js
+// models/Order.js - FIXED VERSION
 import mongoose from 'mongoose';
 
 const orderItemSchema = new mongoose.Schema({
@@ -24,6 +24,10 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  size: {
+    type: String,
+    required: true
+  },
   itemTotal: {
     type: Number,
     required: true
@@ -38,6 +42,7 @@ const shippingAddressSchema = new mongoose.Schema({
   country: { type: String, required: true },
   city: { type: String, required: true },
   address: { type: String, required: true },
+  county: { type: String, required: true },
   postalCode: { type: String }
 });
 
@@ -60,7 +65,8 @@ const orderSchema = new mongoose.Schema({
   },
   shippingCost: {
     type: Number,
-    required: true
+    required: true,
+    default: 0
   },
   total: {
     type: Number,
@@ -90,15 +96,17 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Generate order number
-orderSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const date = new Date();
-    const timestamp = date.getTime();
-    const random = Math.floor(Math.random() * 1000);
+// FIXED: Generate order number - make sure this runs
+orderSchema.pre('save', function(next) {
+  if (this.isNew && !this.orderNumber) {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     this.orderNumber = `ORD-${timestamp}-${random}`;
   }
   next();
 });
 
-export default mongoose.model('Order', orderSchema);
+// EXPLICIT COLLECTION NAME
+const Order = mongoose.model('Order', orderSchema, 'orders');
+
+export default Order;

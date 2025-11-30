@@ -1,7 +1,9 @@
-// routes/adminRoutes.js
+// routes/adminRoutes.js - UPDATED WITH PROPER SETTINGS & ANALYTICS
 import express from 'express';
-import auth from '../middleware/auth.js';
+import asyncHandler from 'express-async-handler';
+import { protect, admin } from '../middleware/authMiddleware.js';
 import { adminAuth } from '../middleware/adminAuth.js';
+import { upload } from '../middleware/uploadMiddleware.js';
 import {
   getDashboardStats,
   getOrders,
@@ -13,13 +15,16 @@ import {
   deleteProduct,
   getUsers,
   getContacts,
-  updateContactStatus
+  updateContactStatus,
+  getSettings,
+  updateSettings,
+  getSalesAnalytics
 } from '../controllers/adminController.js';
 
 const router = express.Router();
 
 // All routes require authentication and admin privileges
-router.use(auth);
+router.use(protect, admin);
 
 // ==================== ADMIN DASHBOARD STATS ====================
 router.get('/dashboard/stats', adminAuth(['dashboard:view']), getDashboardStats);
@@ -31,8 +36,8 @@ router.put('/orders/:id/status', adminAuth(['orders:update_status']), updateOrde
 
 // ==================== PRODUCT MANAGEMENT ====================
 router.get('/products', adminAuth(['products:manage']), getProducts);
-router.post('/products', adminAuth(['products:manage']), createProduct);
-router.put('/products/:id', adminAuth(['products:manage']), updateProduct);
+router.post('/products', adminAuth(['products:manage']), upload.array('images', 5), createProduct);
+router.put('/products/:id', adminAuth(['products:manage']), upload.array('images', 5), updateProduct);
 router.delete('/products/:id', adminAuth(['products:manage']), deleteProduct);
 
 // ==================== USER MANAGEMENT ====================
@@ -41,5 +46,38 @@ router.get('/users', adminAuth(['users:view']), getUsers);
 // ==================== CONTACT MANAGEMENT ====================
 router.get('/contacts', adminAuth(['contacts:manage']), getContacts);
 router.put('/contacts/:id/status', adminAuth(['contacts:manage']), updateContactStatus);
+
+// ==================== SETTINGS MANAGEMENT ====================
+router.get('/settings', adminAuth(['settings:manage']), getSettings);
+router.put('/settings', adminAuth(['settings:manage']), updateSettings);
+router.post('/upload/logo', adminAuth(['settings:manage']), upload.single('logo'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    res.status(400);
+    throw new Error('No logo file uploaded');
+  }
+
+  const logoUrl = req.file.path;
+
+  res.json({
+    success: true,
+    message: 'Logo uploaded successfully',
+    data: { url: logoUrl }
+  });
+}));
+
+// ==================== ANALYTICS ====================
+router.get('/analytics/sales', adminAuth(['analytics:view']), getSalesAnalytics);
+
+// ==================== ADMIN DASHBOARD ====================
+router.get('/dashboard', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Admin dashboard',
+    data: {
+      welcome: 'Welcome to Rerendet Coffee Admin Dashboard',
+      version: '1.0.0'
+    }
+  });
+});
 
 export default router;

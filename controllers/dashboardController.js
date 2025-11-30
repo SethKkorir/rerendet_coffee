@@ -1,12 +1,8 @@
-// controllers/dashboardController.js
 import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
 import Address from '../models/Address.js';
 import PaymentMethod from '../models/PaymentMethod.js';
 import Order from '../models/Order.js';
-import speakeasy from 'speakeasy';
-import QRCode from 'qrcode';
-import sendEmail from '../utils/sendEmail.js';
 
 // @desc    Get dashboard data
 // @route   GET /api/dashboard/data
@@ -36,12 +32,6 @@ const getDashboardData = asyncHandler(async (req, res) => {
     throw new Error('User not found');
   }
 
-  // Calculate loyalty progress
-  const loyaltyProgress = Math.min((user.loyalty.points / 1000) * 100, 100);
-  const nextTier = user.loyalty.tier === 'Bronze' ? 'Silver' : 
-                  user.loyalty.tier === 'Silver' ? 'Gold' : 
-                  user.loyalty.tier === 'Gold' ? 'Platinum' : 'Platinum';
-
   res.json({
     success: true,
     data: {
@@ -53,27 +43,15 @@ const getDashboardData = asyncHandler(async (req, res) => {
         phone: user.phone,
         gender: user.gender,
         dateOfBirth: user.dateOfBirth,
-        profilePicture: user.profilePicture,
-        preferences: user.preferences || {
-          favoriteRoast: '',
-          brewMethod: '',
-        },
-        loyalty: {
-          points: user.loyalty.points,
-          tier: user.loyalty.tier,
-          nextTier: nextTier,
-          progress: loyaltyProgress
-        }
+        profilePicture: user.profilePicture
       },
       addresses: addresses || [],
       paymentMethods: paymentMethods || [],
       recentOrders: recentOrders || [],
       stats: {
         totalOrders: ordersCount,
-        loyaltyPoints: user.loyalty.points,
-        loyaltyTier: user.loyalty.tier,
-        loyaltyProgress,
-        favoritesCount: 0
+        loyaltyPoints: user.loyalty?.points || 0,
+        loyaltyTier: user.loyalty?.tier || 'Bronze'
       }
     }
   });
@@ -86,16 +64,9 @@ const updateProfile = asyncHandler(async (req, res) => {
   const { firstName, lastName, phone, dateOfBirth, gender } = req.body;
   const userId = req.user._id;
 
-  // Validate required fields
   if (!firstName || !lastName) {
     res.status(400);
     throw new Error('First name and last name are required');
-  }
-
-  // Validate phone format
-  if (phone && !/^\+?[\d\s\-\(\)]{10,}$/.test(phone)) {
-    res.status(400);
-    throw new Error('Please provide a valid phone number');
   }
 
   const user = await User.findByIdAndUpdate(
@@ -179,7 +150,6 @@ const getAddresses = asyncHandler(async (req, res) => {
 const addAddress = asyncHandler(async (req, res) => {
   const { type, name, street, city, postalCode, country, isDefault, instructions } = req.body;
 
-  // Validate required fields
   if (!name || !street || !city || !postalCode) {
     res.status(400);
     throw new Error('Please fill in all required address fields');
@@ -362,7 +332,7 @@ const deletePaymentMethod = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Update password with security checks
+// @desc    Update password
 // @route   PUT /api/dashboard/security/password
 // @access  Private
 const updatePassword = asyncHandler(async (req, res) => {
@@ -379,32 +349,13 @@ const updatePassword = asyncHandler(async (req, res) => {
     throw new Error('Password must be at least 8 characters long');
   }
 
-  // Password strength validation
-  const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
-  if (!strongPasswordRegex.test(newPassword)) {
-    res.status(400);
-    throw new Error('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character');
-  }
+  const user = await User.findById(userId).select('+password');
 
-  const user = await User.findById(userId).select('+password +security');
-
-  // Check if current password is correct
   if (!(await user.comparePassword(currentPassword))) {
-    await user.incrementLoginAttempts();
     res.status(401);
     throw new Error('Current password is incorrect');
   }
 
-  // Check if new password is same as current
-  if (await user.comparePassword(newPassword)) {
-    res.status(400);
-    throw new Error('New password cannot be the same as current password');
-  }
-
-  // Reset login attempts on successful password verification
-  await user.resetLoginAttempts();
-
-  // Update password
   user.password = newPassword;
   await user.save();
 
@@ -414,127 +365,7 @@ const updatePassword = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Get security settings
-// @route   GET /api/dashboard/security/settings
-// @access  Private
-const getSecuritySettings = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).select('security');
-
-  res.json({
-    success: true,
-    data: {
-      twoFactorEnabled: user.security.twoFactorEnabled,
-      lastPasswordChange: user.security.lastPasswordChange,
-      loginAttempts: user.security.loginAttempts,
-      isLocked: user.isLocked
-    }
-  });
-});
-
-// @desc    Enable 2FA
-// @route   POST /api/dashboard/security/2fa/enable
-// @access  Private
-const enable2FA = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-
-  if (user.security.twoFactorEnabled) {
-    res.status(400);
-    throw new Error('2FA is already enabled');
-  }
-
-  const secret = speakeasy.generateSecret({
-    name: `Rerendet Coffee (${user.email})`
-  });
-
-  user.security.twoFactorSecret = secret.base32;
-  await user.save();
-
-  const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
-
-  res.json({
-    success: true,
-    data: {
-      secret: secret.base32,
-      qrCode: qrCodeUrl
-    }
-  });
-});
-
-// @desc    Verify and enable 2FA
-// @route   POST /api/dashboard/security/2fa/verify
-// @access  Private
-const verify2FA = asyncHandler(async (req, res) => {
-  const { token } = req.body;
-
-  if (!token) {
-    res.status(400);
-    throw new Error('2FA token is required');
-  }
-
-  const user = await User.findById(req.user._id);
-
-  const verified = speakeasy.totp.verify({
-    secret: user.security.twoFactorSecret,
-    encoding: 'base32',
-    token,
-    window: 2
-  });
-
-  if (!verified) {
-    res.status(400);
-    throw new Error('Invalid 2FA token');
-  }
-
-  user.security.twoFactorEnabled = true;
-  await user.save();
-
-  res.json({
-    success: true,
-    message: '2FA enabled successfully'
-  });
-});
-
-// @desc    Disable 2FA
-// @route   POST /api/dashboard/security/2fa/disable
-// @access  Private
-const disable2FA = asyncHandler(async (req, res) => {
-  const { password } = req.body;
-
-  if (!password) {
-    res.status(400);
-    throw new Error('Password is required to disable 2FA');
-  }
-
-  const user = await User.findById(req.user._id).select('+password');
-
-  if (!(await user.comparePassword(password))) {
-    res.status(401);
-    throw new Error('Password is incorrect');
-  }
-
-  user.security.twoFactorEnabled = false;
-  user.security.twoFactorSecret = undefined;
-  await user.save();
-
-  res.json({
-    success: true,
-    message: '2FA disabled successfully'
-  });
-});
-
-// @desc    Get login history
-// @route   GET /api/dashboard/security/login-history
-// @access  Private
-const getLoginHistory = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).select('loginHistory');
-
-  res.json({
-    success: true,
-    data: user.loginHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-  });
-});
-
-// @desc    Get orders with pagination
+// @desc    Get user orders
 // @route   GET /api/dashboard/orders
 // @access  Private
 const getOrders = asyncHandler(async (req, res) => {
@@ -566,93 +397,112 @@ const getOrders = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get security settings
+// @route   GET /api/dashboard/security/settings
+// @access  Private
+const getSecuritySettings = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select('twoFactorAuth lastLoginAt loginHistory');
+
+  res.json({
+    success: true,
+    data: {
+      twoFactorEnabled: user.twoFactorAuth?.enabled || false,
+      lastLogin: user.lastLoginAt,
+      loginHistory: user.loginHistory || []
+    }
+  });
+});
+
+// @desc    Enable 2FA
+// @route   POST /api/dashboard/security/2fa/enable
+// @access  Private
+const enable2FA = asyncHandler(async (req, res) => {
+  // For now, return a placeholder since 2FA implementation requires additional setup
+  res.json({
+    success: true,
+    message: '2FA setup initiated',
+    data: {
+      qrCode: 'placeholder-qr-code-url',
+      secret: 'placeholder-secret'
+    }
+  });
+});
+
+// @desc    Verify 2FA
+// @route   POST /api/dashboard/security/2fa/verify
+// @access  Private
+const verify2FA = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  
+  // Placeholder verification
+  if (!token) {
+    res.status(400);
+    throw new Error('Verification token is required');
+  }
+
+  // For now, just mark 2FA as enabled
+  await User.findByIdAndUpdate(req.user._id, {
+    'twoFactorAuth.enabled': true,
+    'twoFactorAuth.enabledAt': new Date()
+  });
+
+  res.json({
+    success: true,
+    message: '2FA enabled successfully'
+  });
+});
+
+// @desc    Disable 2FA
+// @route   POST /api/dashboard/security/2fa/disable
+// @access  Private
+const disable2FA = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(req.user._id, {
+    'twoFactorAuth.enabled': false,
+    'twoFactorAuth.disabledAt': new Date()
+  });
+
+  res.json({
+    success: true,
+    message: '2FA disabled successfully'
+  });
+});
+
+// @desc    Get login history
+// @route   GET /api/dashboard/security/login-history
+// @access  Private
+const getLoginHistory = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select('loginHistory');
+  
+  res.json({
+    success: true,
+    data: user.loginHistory || []
+  });
+});
+
 // @desc    Delete user account
 // @route   DELETE /api/dashboard/account
 // @access  Private
 const deleteAccount = asyncHandler(async (req, res) => {
-  const { password } = req.body;
-  const userId = req.user._id;
+  const { confirmation } = req.body;
 
-  if (!password) {
+  if (!confirmation || confirmation !== 'DELETE MY ACCOUNT') {
     res.status(400);
-    throw new Error('Password is required to delete account');
+    throw new Error('Please type "DELETE MY ACCOUNT" to confirm account deletion');
   }
 
-  const user = await User.findById(userId).select('+password');
-  
-  if (!user) {
-    res.status(404);
-    throw new Error('User not found');
-  }
+  const user = await User.findById(req.user._id);
 
-  // Verify password
-  const isPasswordCorrect = await user.comparePassword(password);
-  if (!isPasswordCorrect) {
-    res.status(401);
-    throw new Error('Incorrect password. Account deletion failed.');
-  }
-
-  // Store user data for email before deletion
-  const userData = {
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName
-  };
-
-  // Delete associated data
-  await Promise.all([
-    Address.deleteMany({ user: userId }),
-    PaymentMethod.deleteMany({ user: userId }),
-    User.findByIdAndDelete(userId)
-  ]);
-
-  // Send goodbye email
-  try {
-    const goodbyeHtml = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 10px; text-align: center;">
-          <h1 style="color: #1a1a1a; margin-bottom: 20px;">😔 We're Sad to See You Go</h1>
-          
-          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
-            <p>Hello ${userData.firstName},</p>
-            <p>Your Rerendet Coffee account has been successfully deleted.</p>
-            <p>We're sorry to see you leave and hope you enjoyed your coffee journey with us.</p>
-            
-            <div style="background: #fef2f2; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #ef4444;">
-              <p style="color: #dc2626; margin: 0; font-size: 0.9rem;">
-                <strong>Note:</strong> All your data, including order history and preferences, has been permanently deleted from our systems.
-              </p>
-            </div>
-            
-            <p>If you change your mind, we'd love to welcome you back anytime!</p>
-          </div>
-          
-          <p style="color: #6b7280; font-size: 0.9rem;">
-            If this was a mistake or you need assistance, please contact our support team immediately.
-          </p>
-        </div>
-        <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 0.8rem;">
-          <p>&copy; ${new Date().getFullYear()} Rerendet Coffee. All rights reserved.</p>
-        </div>
-      </div>
-    `;
-
-    await sendEmail({
-      email: userData.email,
-      subject: 'Account Deletion Confirmation - Rerendet Coffee',
-      html: goodbyeHtml
-    });
-  } catch (error) {
-    console.error('Goodbye email failed:', error);
-  }
+  // Soft delete - mark as inactive
+  user.isActive = false;
+  user.email = `deleted_${Date.now()}@deleted.com`;
+  await user.save();
 
   res.json({
     success: true,
-    message: 'Account successfully deleted. We hope to see you again!'
+    message: 'Account deleted successfully'
   });
 });
 
-// Export all functions
 export {
   getDashboardData,
   updateProfile,
@@ -666,11 +516,11 @@ export {
   updatePaymentMethod,
   deletePaymentMethod,
   updatePassword,
+  getOrders,
   getSecuritySettings,
   enable2FA,
   verify2FA,
   disable2FA,
   getLoginHistory,
-  getOrders,
   deleteAccount
 };

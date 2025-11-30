@@ -1,4 +1,4 @@
-// Updated CoffeeShop.jsx - Using real product images
+// CoffeeShop.jsx - COMPLETELY REWRITTEN WITH FIXED PRODUCT ID ISSUE
 import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../../context/AppContext';
 import './CoffeeShop.css';
@@ -9,137 +9,66 @@ const CoffeeShop = () => {
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(null);
 
-  // Fetch products
+  // Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const mockProducts = [
-          {
-            _id: "bomet-sunrise-250",
-            name: "Bomet Sunrise Blend",
-            description: "A bright and uplifting blend with citrus notes and smooth finish. Perfect for starting your day with energy and positivity.",
-            sizes: [
-              { size: "250g", price: 850 },
-              { size: "500g", price: 1600 },
-              { size: "1000g", price: 3000 }
-            ],
-            images: [
-              {
-                url: "/images/coffee/bomet-sunrise.png",
-                public_id: "bomet_sunrise"
-              }
-            ],
-            badge: "Morning Favorite",
-            category: "blend",
-            roastLevel: "medium",
-            flavorNotes: ["Citrus", "Caramel", "Honey"],
-            origin: "Kenya",
-            inStock: true,
-            inventory: {
-              stock: 10,
-              lowStockAlert: 5
-            }
-          },
-          {
-            _id: "dark-forest-250",
-            name: "Dark Forest Blend",
-            description: "Rich and bold with deep chocolate notes and earthy undertones. A robust blend for those who prefer intense flavors.",
-            sizes: [
-              { size: "250g", price: 900 },
-              { size: "500g", price: 1700 },
-              { size: "1000g", price: 3200 }
-            ],
-            images: [
-              {
-                url: "/images/coffee/dark-forest.png",
-                public_id: "dark_forest"
-              }
-            ],
-            badge: "Bold & Rich",
-            category: "blend",
-            roastLevel: "dark",
-            flavorNotes: ["Dark Chocolate", "Earthy", "Spice"],
-            origin: "Blend",
-            inStock: true,
-            inventory: {
-              stock: 8,
-              lowStockAlert: 5
-            }
-          },
-          {
-            _id: "caramel-cloud-250",
-            name: "Caramel Cloud",
-            description: "Smooth and sweet with creamy caramel notes and a velvety texture. A delightful treat for any time of day.",
-            sizes: [
-              { size: "250g", price: 950 },
-              { size: "500g", price: 1800 },
-              { size: "1000g", price: 3400 }
-            ],
-            images: [
-              {
-                url: "/images/coffee/caramel-cloud.jpg",
-                public_id: "caramel_cloud"
-              }
-            ],
-            badge: "Sweet & Smooth",
-            category: "blend",
-            roastLevel: "medium-light",
-            flavorNotes: ["Caramel", "Cream", "Vanilla"],
-            origin: "Blend",
-            inStock: true,
-            inventory: {
-              stock: 12,
-              lowStockAlert: 5
-            }
-          },
-          {
-            _id: "highland-espresso-250",
-            name: "Highland Espresso",
-            description: "Intense and full-bodied espresso roast with notes of dark berries and a hint of spice. Perfect for espresso lovers.",
-            sizes: [
-              { size: "250g", price: 920 },
-              { size: "500g", price: 1750 },
-              { size: "1000g", price: 3300 }
-            ],
-            images: [
-              {
-                url: "/images/coffee/highland-expresso.png",
-                public_id: "highland_espresso"
-              }
-            ],
-            badge: "Espresso Blend",
-            category: "blend",
-            roastLevel: "espresso",
-            flavorNotes: ["Dark Berries", "Spice", "Cocoa"],
-            origin: "Central Kenya",
-            inStock: true,
-            inventory: {
-              stock: 15,
-              lowStockAlert: 5
-            }
-          }
-        ];
+        setLoading(true);
+        const response = await fetch('/api/products?category=coffee-beans&inStock=true');
         
-        // Generate all product variations with different sizes
-        const allProducts = [];
-        mockProducts.forEach(product => {
-          product.sizes.forEach(sizeOption => {
-            allProducts.push({
-              ...product,
-              _id: `${product.name.toLowerCase().replace(/\s+/g, '-')}-${sizeOption.size.replace('g', '')}`,
-              size: sizeOption.size,
-              price: sizeOption.price,
-              displayName: `${product.name} - ${sizeOption.size}`,
-              // Ensure images array is preserved
-              images: product.images || []
-            });
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data && Array.isArray(result.data.products)) {
+          // Generate all product variations with different sizes - FIXED ID ISSUE
+          const allProducts = [];
+          result.data.products.forEach(product => {
+            // Only process products that have sizes
+            if (product.sizes && product.sizes.length > 0) {
+              product.sizes.forEach(sizeOption => {
+                allProducts.push({
+                  // Preserve all original product data
+                  ...product,
+                  // KEEP THE ORIGINAL _id - don't modify it!
+                  _id: product._id, // Keep original MongoDB ObjectId
+                  size: sizeOption.size,
+                  price: sizeOption.price,
+                  displayName: `${product.name} - ${sizeOption.size}`,
+                  // Store size separately for cart operations
+                  selectedSize: sizeOption.size,
+                  // Ensure images array is preserved
+                  images: product.images || [],
+                  // Add a unique key for React rendering only (not for database operations)
+                  variationKey: `${product._id}-${sizeOption.size.replace('g', '')}`
+                });
+              });
+            } else {
+              // If product has no sizes, add it as-is with default values
+              allProducts.push({
+                ...product,
+                size: '250g',
+                price: product.price || 0,
+                displayName: product.name,
+                selectedSize: '250g',
+                images: product.images || [],
+                variationKey: product._id
+              });
+            }
           });
-        });
-        
-        setProducts(allProducts);
+          
+          setProducts(allProducts);
+        } else {
+          // If no products found, set empty array
+          setProducts([]);
+        }
       } catch (error) {
         console.error('Error fetching products:', error);
-        showAlert('Failed to load products', 'error');
+        showAlert('Failed to load products. Please try again later.', 'error');
+        // Set empty array on error so UI doesn't break
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -184,18 +113,33 @@ const CoffeeShop = () => {
     return product.inStock ? 10 : 0; // Default to 10 if inStock is true but no count
   };
 
-  const handleAddToCart = async (product) => {
-    setAddingToCart(product._id);
-    try {
-      await addToCart(product, 1);
-      // Success message is handled in AppContext
-    } catch (error) {
-      console.log('Error adding to cart:', error);
-    } finally {
-      setAddingToCart(null);
-    }
-  };
-
+ const handleAddToCart = async (product) => {
+  setAddingToCart(product.variationKey);
+  try {
+    // Create a clean product object for the cart that includes sizes array
+    const cartProduct = {
+      _id: product._id, // Use the original MongoDB ObjectId
+      name: product.name,
+      price: product.price, // Include the pre-calculated price
+      size: product.selectedSize || product.size, // Include the selected size
+      images: product.images || [],
+      category: product.category,
+      roastLevel: product.roastLevel,
+      origin: product.origin,
+      flavorNotes: product.flavorNotes,
+      badge: product.badge,
+      // Include the sizes array for price validation
+      sizes: product.sizes || []
+    };
+    
+    await addToCart(cartProduct, 1, product.selectedSize || product.size);
+  } catch (error) {
+    console.error('Error adding to cart:', error);
+    showAlert('Failed to add product to cart', 'error');
+  } finally {
+    setAddingToCart(null);
+  }
+};
   if (loading) {
     return (
       <section id="coffee-shop" className="coffee-shop">
@@ -224,7 +168,7 @@ const CoffeeShop = () => {
             
             return (
               <div 
-                key={product._id}
+                key={product.variationKey} // Use variationKey for React rendering
                 className="coffee-card"
                 data-aos="fade-up"
                 data-aos-delay={index * 100}
@@ -273,12 +217,12 @@ const CoffeeShop = () => {
                   
                   <button 
                     className={`btn primary add-to-cart ${
-                      !productInStock || addingToCart === product._id ? 'disabled' : ''
+                      !productInStock || addingToCart === product.variationKey ? 'disabled' : ''
                     }`}
                     onClick={() => handleAddToCart(product)}
-                    disabled={!productInStock || addingToCart === product._id}
+                    disabled={!productInStock || addingToCart === product.variationKey}
                   >
-                    {addingToCart === product._id ? (
+                    {addingToCart === product.variationKey ? (
                       <>
                         <div className="btn-spinner"></div>
                         Adding...
@@ -300,6 +244,13 @@ const CoffeeShop = () => {
             );
           })}
         </div>
+
+        {!loading && products.length === 0 && (
+          <div className="empty-state">
+            <p>No coffee products found at the moment.</p>
+            <p>Please check back later or contact us for availability.</p>
+          </div>
+        )}
       </div>
     </section>
   );

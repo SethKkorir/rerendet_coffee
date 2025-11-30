@@ -9,11 +9,11 @@ function CartSidebar() {
   const {
     user,
     cart,
-    cartLoading,
     isCartOpen,
     setIsCartOpen,
-    updateQuantity,
+    // addToCart,
     removeFromCart,
+    updateCartQuantity,
     showNotification
   } = useContext(AppContext);
   
@@ -26,11 +26,11 @@ function CartSidebar() {
 
   const openShop = () => {
     closeCart();
-    navigate('/shop');
+    navigate('/#coffee-shop');
   };
 
   const proceedToCheckout = () => {
-    if (!cart?.items || cart.items.length === 0) {
+    if (!cart || cart.length === 0) {
       showNotification('Your cart is empty', 'warning');
       return;
     }
@@ -38,6 +38,7 @@ function CartSidebar() {
     if (!user) {
       showNotification('Please sign in to proceed to checkout', 'warning');
       closeCart();
+      navigate('/login');
       return;
     }
 
@@ -45,26 +46,26 @@ function CartSidebar() {
     navigate('/checkout');
   };
 
-  const handleQuantityUpdate = async (itemId, delta) => {
-    try {
-      await updateQuantity(itemId, delta);
-    } catch (error) {
-      console.error('Failed to update quantity:', error);
+  const handleQuantityUpdate = (productId, delta) => {
+    const product = cart.find(item => item.id === productId || item._id === productId);
+    if (!product) return;
+
+    const newQuantity = product.quantity + delta;
+    
+    if (newQuantity <= 0) {
+      removeFromCart(productId);
+    } else {
+      updateCartQuantity(productId, newQuantity);
     }
   };
 
-  const handleRemoveItem = async (itemId) => {
-    try {
-      await removeFromCart(itemId);
-    } catch (error) {
-      console.error('Failed to remove item:', error);
-    }
+  const handleRemoveItem = (productId) => {
+    removeFromCart(productId);
   };
 
   // Calculate display values
-  const displayCart = cart || { items: [] };
-  const displayTotal = cart?.finalPrice || cart?.totalPrice || 0;
-  const itemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const itemCount = cart?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const displayTotal = cart?.reduce((total, item) => total + (item.price * item.quantity), 0) || 0;
 
   // Close cart when clicking overlay
   const handleOverlayClick = (e) => {
@@ -93,6 +94,17 @@ function CartSidebar() {
       document.body.classList.remove('cart-open');
     }
   }, [isCartOpen]);
+
+  // Helper function to get product image
+  const getProductImage = (product) => {
+    if (product.images && product.images.length > 0 && product.images[0].url) {
+      return product.images[0].url;
+    }
+    if (product.image) {
+      return product.image;
+    }
+    return '/images/placeholder-coffee.jpg';
+  };
 
   return (
     <>
@@ -126,15 +138,8 @@ function CartSidebar() {
         
         {/* Cart Content */}
         <div className="cart-content">
-          {cartLoading && (
-            <div className="cart-loading">
-              <div className="loading-spinner"></div>
-              <p>Updating cart...</p>
-            </div>
-          )}
-          
           <div className="cart-items">
-            {!displayCart.items || displayCart.items.length === 0 ? (
+            {!cart || cart.length === 0 ? (
               <div className="cart-empty">
                 <div className="empty-cart-icon">
                   <FaShoppingBag />
@@ -149,14 +154,14 @@ function CartSidebar() {
                 </button>
               </div>
             ) : (
-              displayCart.items.map(item => (
+              cart.map(item => (
                 <div 
-                  className={`cart-item ${cartLoading ? 'updating' : ''}`} 
-                  key={item._id || item.id}
+                  className="cart-item" 
+                  key={item.id || item._id}
                 >
                   <div className="cart-item-image">
                     <img 
-                      src={item.image || '/images/placeholder-coffee.jpg'} 
+                      src={getProductImage(item)} 
                       alt={item.name} 
                       loading="lazy"
                       onError={(e) => {
@@ -167,14 +172,17 @@ function CartSidebar() {
                   
                   <div className="cart-item-details">
                     <h4 className="cart-item-title">{item.name}</h4>
+                    {item.size && (
+                      <div className="cart-item-size">Size: {item.size}</div>
+                    )}
                     
                     <div className="cart-item-price">KSh {item.price?.toLocaleString()}</div>
                     
                     <div className="cart-item-controls">
                       <div className="quantity-control">
                         <button 
-                          onClick={() => handleQuantityUpdate(item._id || item.id, -1)}
-                          disabled={item.quantity <= 1 || cartLoading}
+                          onClick={() => handleQuantityUpdate(item.id || item._id, -1)}
+                          disabled={item.quantity <= 1}
                           aria-label={`Decrease quantity of ${item.name}`}
                           className="quantity-btn"
                         >
@@ -182,8 +190,7 @@ function CartSidebar() {
                         </button>
                         <span className="quantity-display">{item.quantity}</span>
                         <button 
-                          onClick={() => handleQuantityUpdate(item._id || item.id, 1)}
-                          disabled={cartLoading}
+                          onClick={() => handleQuantityUpdate(item.id || item._id, 1)}
                           aria-label={`Increase quantity of ${item.name}`}
                           className="quantity-btn"
                         >
@@ -193,8 +200,7 @@ function CartSidebar() {
                       
                       <button 
                         className="remove-item" 
-                        onClick={() => handleRemoveItem(item._id || item.id)}
-                        disabled={cartLoading}
+                        onClick={() => handleRemoveItem(item.id || item._id)}
                         aria-label={`Remove ${item.name} from cart`}
                       >
                         <FaTrash />
@@ -211,10 +217,9 @@ function CartSidebar() {
           </div>
         </div>
         
-        {/* Cart Footer - SIMPLIFIED */}
-        {displayCart.items && displayCart.items.length > 0 && (
+        {/* Cart Footer */}
+        {cart && cart.length > 0 && (
           <div className="cart-footer">
-            {/* Simple Total Only */}
             <div className="cart-total-simple">
               <div className="total-amount">
                 <span>Total:</span>
@@ -237,25 +242,15 @@ function CartSidebar() {
               <button 
                 className="btn checkout-btn" 
                 onClick={proceedToCheckout}
-                disabled={cartLoading || !user}
+                disabled={!user}
               >
-                {cartLoading ? (
-                  <>
-                    <div className="btn-spinner"></div>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    Proceed to Checkout
-                    <FaArrowRight />
-                  </>
-                )}
+                Proceed to Checkout
+                <FaArrowRight />
               </button>
               
               <button 
                 className="btn secondary continue-btn" 
                 onClick={openShop}
-                disabled={cartLoading}
               >
                 Continue Shopping
               </button>

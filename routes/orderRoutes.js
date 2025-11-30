@@ -1,21 +1,30 @@
-// routes/orderRoutes.js
+// routes/orderRoutes.js - NEW FILE
 import express from 'express';
 import {
-  processCheckout,
+  createOrder,
   getUserOrders,
   getOrderById,
+  getOrders,
+  updateOrderStatus,
   calculateShippingCost
 } from '../controllers/orderController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, admin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(protect); // All order routes require authentication
+// Public routes
+router.post('/shipping-cost', calculateShippingCost);
 
-router.post('/checkout', processCheckout);
-// router
-router.get('/my-orders', getUserOrders);
+// Protected routes
+router.use(protect);
+
+// Customer routes
+router.post('/', createOrder);
+router.get('/my', getUserOrders);
 router.get('/:id', getOrderById);
-router.post('/calculate-shipping', calculateShippingCost);
+
+// Admin routes
+router.get('/', admin, getOrders);
+router.put('/:id/status', admin, updateOrderStatus);
 
 export default router;

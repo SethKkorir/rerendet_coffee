@@ -299,3 +299,113 @@
   padding: 0.375rem 0.75rem;
   font-size: 0.75rem;
 }
+/* Add to OrdersManagement.css */
+.modal-content.large {
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.order-details {
+  padding: 20px 0;
+}
+
+.detail-section {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.detail-section h4 {
+  margin-bottom: 12px;
+  color: #333;
+  font-size: 16px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.shipping-address {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.order-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.item-image img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.item-details {
+  flex: 1;
+}
+
+.item-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.item-price, .item-quantity, .item-total {
+  font-size: 14px;
+  color: #666;
+}
+
+.order-summary {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 6px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.summary-row.total {
+  border-top: 1px solid #ddd;
+  padding-top: 8px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.btn-icon.info {
+  color: #17a2b8;
+}
+
+.btn-icon.warning {
+  color: #ffc107;
+}
+
+.btn-icon.primary {
+  color: #007bff;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

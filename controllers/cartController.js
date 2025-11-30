@@ -1,11 +1,10 @@
 // controllers/cartController.js
+import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import Cart from '../models/Cart.js';
 import Product from '../models/Product.js';
-import asyncHandler from 'express-async-handler';
 
 // Utility function to calculate cart totals
-
 const calculateCartTotals = (items) => {
   const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
   const itemsCount = items.reduce((total, item) => total + item.quantity, 0);
@@ -21,10 +20,10 @@ const calculateCartTotals = (items) => {
   return {
     items,
     itemsCount,
-    subtotal, // Keep for backend but don't show in cart
-    shippingPrice, // Keep for backend but don't show in cart
-    taxPrice, // Keep for backend but don't show in cart
-    finalPrice, // Only show this in cart
+    subtotal,
+    shippingPrice,
+    taxPrice,
+    finalPrice,
     currency: 'KES'
   };
 };
@@ -38,14 +37,12 @@ const getCart = asyncHandler(async (req, res) => {
       .populate('items.product', 'name images price inventory isActive slug');
 
     if (!cart) {
-      // Create new empty cart
       cart = await Cart.create({
         user: req.user._id,
         ...calculateCartTotals([])
       });
     }
 
-    // Ensure cart has all required fields
     const cartData = {
       ...cart.toObject(),
       ...calculateCartTotals(cart.items)
@@ -70,7 +67,6 @@ const addToCart = asyncHandler(async (req, res) => {
   try {
     const { productId, quantity = 1 } = req.body;
 
-    // Validate input
     if (!productId) {
       res.status(400);
       throw new Error('Product ID is required');
@@ -81,7 +77,6 @@ const addToCart = asyncHandler(async (req, res) => {
       throw new Error('Quantity must be a positive integer');
     }
 
-    // Find product
     const product = await Product.findById(productId);
     if (!product) {
       res.status(404);
@@ -98,19 +93,16 @@ const addToCart = asyncHandler(async (req, res) => {
       throw new Error(`Only ${product.inventory.stock} items available in stock`);
     }
 
-    // Find or create cart
     let cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
       cart = new Cart({ user: req.user._id, items: [] });
     }
 
-    // Check if item already exists in cart
     const existingItemIndex = cart.items.findIndex(
       item => item.product.toString() === productId
     );
 
     if (existingItemIndex > -1) {
-      // Update existing item quantity
       const newQuantity = cart.items[existingItemIndex].quantity + quantity;
       
       if (newQuantity > product.inventory.stock) {
@@ -120,7 +112,6 @@ const addToCart = asyncHandler(async (req, res) => {
 
       cart.items[existingItemIndex].quantity = newQuantity;
     } else {
-      // Add new item
       const productImage = product.images?.[0]?.url || '/images/coffee/placeholder.jpg';
       
       cart.items.push({
@@ -133,7 +124,6 @@ const addToCart = asyncHandler(async (req, res) => {
       });
     }
 
-    // Update cart totals
     const totals = calculateCartTotals(cart.items);
     Object.assign(cart, totals);
 
@@ -181,7 +171,6 @@ const updateCartItem = asyncHandler(async (req, res) => {
       throw new Error('Item not found in cart');
     }
 
-    // Check stock if increasing quantity
     if (quantity > item.quantity) {
       const product = await Product.findById(item.product);
       if (!product) {
@@ -197,7 +186,6 @@ const updateCartItem = asyncHandler(async (req, res) => {
 
     item.quantity = quantity;
 
-    // Update cart totals
     const totals = calculateCartTotals(cart.items);
     Object.assign(cart, totals);
 
@@ -237,7 +225,6 @@ const removeFromCart = asyncHandler(async (req, res) => {
 
     cart.items.pull(itemId);
 
-    // Update cart totals
     const totals = calculateCartTotals(cart.items);
     Object.assign(cart, totals);
 
@@ -287,7 +274,7 @@ const clearCart = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Get cart summary (for navbar)
+// @desc    Get cart summary
 // @route   GET /api/cart/summary
 // @access  Private
 const getCartSummary = asyncHandler(async (req, res) => {
@@ -340,7 +327,6 @@ const mergeCarts = asyncHandler(async (req, res) => {
       skipped: 0
     };
 
-    // Merge guest cart items
     for (const guestItem of guestCart.items) {
       try {
         const product = await Product.findById(guestItem.product);

@@ -1,5 +1,6 @@
 // src/components/Admin/AdminLayout.jsx
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
 import { 
   FaTachometerAlt, FaShoppingBag, FaBox, FaUsers, 
@@ -10,6 +11,8 @@ import './AdminLayout.css';
 
 const AdminLayout = ({ children }) => {
   const { user, logout, showNotification } = useContext(AppContext);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeMenu, setActiveMenu] = useState('dashboard');
 
@@ -23,9 +26,24 @@ const AdminLayout = ({ children }) => {
     { id: 'settings', label: 'Settings', icon: <FaCog />, path: '/admin/settings' },
   ];
 
+  // Update active menu based on current location
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const activeItem = menuItems.find(item => currentPath === item.path || currentPath.startsWith(item.path + '/'));
+    if (activeItem) {
+      setActiveMenu(activeItem.id);
+    }
+  }, [location.pathname]);
+
+  const handleMenuClick = (item) => {
+    setActiveMenu(item.id);
+    navigate(item.path);
+  };
+
   const handleLogout = () => {
     logout();
     showNotification('Logged out successfully', 'info');
+    navigate('/admin/login');
   };
 
   return (
@@ -47,7 +65,7 @@ const AdminLayout = ({ children }) => {
             <button
               key={item.id}
               className={`nav-item ${activeMenu === item.id ? 'active' : ''}`}
-              onClick={() => setActiveMenu(item.id)}
+              onClick={() => handleMenuClick(item)}
             >
               <span className="nav-icon">{item.icon}</span>
               {sidebarOpen && <span className="nav-label">{item.label}</span>}

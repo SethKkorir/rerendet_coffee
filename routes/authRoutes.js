@@ -1,38 +1,50 @@
-// routes/authRoutes.js
+// routes/authRoutes.js - CORRECTED VERSION
 import express from 'express';
 import {
-  registerUser,
+  // Customer auth
+  registerCustomer,
+  loginCustomer,
+  
+  // Admin auth
+  loginAdmin,
+  createAdmin,
+  
+  // Common auth
   verifyEmail,
-  loginUser,
-  logoutUser,
-  getUserProfile,
-  updateUserProfile,
+  getCurrentUser,
+  logout,
+  checkEmail,
   forgotPassword,
   resetPassword,
-  checkEmail, 
-  googleAuth,
-  // saveShippingInfo
+  resendVerification
 } from '../controllers/authController.js';
-import { protect } from '../middleware/authMiddleware.js';
-import { saveShippingInfo } from '../controllers/shippingController.js';
-
+import { protect, admin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.post('/register', registerUser);
+// ==================== PUBLIC ROUTES ====================
+
+// Customer auth
+router.post('/customer/register', registerCustomer);
+router.post('/customer/login', loginCustomer);
+
+// Admin auth
+router.post('/admin/login', loginAdmin);
+
+// Common auth
 router.post('/verify-email', verifyEmail);
-router.post('/login', loginUser);
-router.post('/logout', logoutUser);
 router.post('/forgot-password', forgotPassword);
-router.get('/check-email', checkEmail);
 router.post('/reset-password', resetPassword);
-router.route('/profile')
+router.get('/check-email', checkEmail);
+router.post('/resend-verification', resendVerification);
 
-  .get(protect, getUserProfile)
-  .put(protect, updateUserProfile);
-router.put('/shipping-info', protect, saveShippingInfo);
-router.post('/google', googleAuth);
-// router.put('/shipping-info', protect, saveShippingInfo);
+// ==================== PROTECTED ROUTES ====================
 
+// Common protected
+router.get('/me', protect, getCurrentUser);
+router.post('/logout', protect, logout);
+
+// Admin management (admin only - using existing admin middleware)
+router.post('/admin/create', protect, admin, createAdmin);
 
 export default router;

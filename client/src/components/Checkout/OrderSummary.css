@@ -1,0 +1,6 @@
+.order-summary { background:#fff; padding:16px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.06); }
+.os-items { list-style:none; margin:0; padding:0 0 8px 0; max-height:260px; overflow:auto; }
+.os-item { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f3f4f6; }
+.os-left { display:flex; gap:8px; flex-direction:column; }
+.os-row { display:flex; justify-content:space-between; padding:8px 0; font-weight:600; }
+.os-total { font-size:1.05rem; margin-top:8px; }

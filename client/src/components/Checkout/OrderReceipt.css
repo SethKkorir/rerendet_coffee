@@ -5,13 +5,13 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.modern-receipt {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  position: relative;
-  overflow: hidden;
+.receipt {
+  max-width: 800px;
+  margin: 24px auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 .receipt-header {
