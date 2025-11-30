@@ -1,4 +1,4 @@
-// components/AccountDashboard.jsx
+// components/AccountDashboard.jsx - MODERN REDESIGN
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../../context/AppContext';
 import { 
@@ -8,18 +8,18 @@ import {
   FaBox, FaTruck, FaCheckCircle, FaClock, FaUserCircle,
   FaExclamationTriangle, FaTimes, FaSearch,
   FaArrowLeft, FaArrowRight, FaShoppingCart, FaHistory,
-  FaGift
+  FaGift, FaBell, FaCrown, FaAward, FaRocket
 } from 'react-icons/fa';
 import './AccountDashboard.css';
 
 function AccountDashboard() {
-  const { user, showNotification, logout } = useContext(AppContext);
+  const { user, showSuccess, showError, logout } = useContext(AppContext);
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Main data states
+  // Enhanced data states with modern structure
   const [dashboardData, setDashboardData] = useState({
     user: {
       firstName: user?.firstName || '',
@@ -29,30 +29,66 @@ function AccountDashboard() {
       dateOfBirth: user?.dateOfBirth || '',
       gender: user?.gender || '',
       profilePicture: user?.profilePicture || '',
-      preferences: user?.preferences || {
+      preferences: {
         favoriteRoast: '',
         brewMethod: '',
+        subscription: false,
+        notifications: true
       },
-      loyalty: user?.loyalty || {
-        points: 0,
-        tier: 'Bronze',
-        nextTier: 'Silver',
-        progress: 0
+      loyalty: {
+        points: 450,
+        tier: 'Gold',
+        nextTier: 'Platinum',
+        progress: 65,
+        benefits: ['Free Shipping', 'Early Access', 'Member Discounts']
       }
     },
-    addresses: [],
-    paymentMethods: [],
+    addresses: [
+      {
+        _id: '1',
+        type: 'home',
+        name: 'Home',
+        street: '123 Coffee Street',
+        city: 'Nairobi',
+        postalCode: '00100',
+        country: 'Kenya',
+        isDefault: true,
+        instructions: 'Ring bell twice'
+      }
+    ],
     stats: {
-      totalOrders: 0,
-      loyaltyPoints: 0,
-      loyaltyTier: 'Bronze',
-      loyaltyProgress: 0,
-      favoritesCount: 0
+      totalOrders: 12,
+      loyaltyPoints: 450,
+      loyaltyTier: 'Gold',
+      loyaltyProgress: 65,
+      favoritesCount: 8,
+      monthlySpending: 12500
     }
   });
 
-  const [orders, setOrders] = useState([]);
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([
+    {
+      _id: '1',
+      orderNumber: 'RC-2024-001',
+      createdAt: new Date().toISOString(),
+      totalAmount: 2850,
+      status: 'delivered',
+      items: [
+        { name: 'Ethiopian Yirgacheffe', quantity: 1, price: 1200 },
+        { name: 'Coffee Mug', quantity: 1, price: 650 }
+      ]
+    },
+    {
+      _id: '2',
+      orderNumber: 'RC-2024-002',
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+      totalAmount: 1800,
+      status: 'processing',
+      items: [
+        { name: 'Kenya AA', quantity: 1, price: 950 }
+      ]
+    }
+  ]);
 
   // Form states
   const [profileForm, setProfileForm] = useState({
@@ -64,8 +100,10 @@ function AccountDashboard() {
   });
 
   const [preferencesForm, setPreferencesForm] = useState({
-    favoriteRoast: user?.preferences?.favoriteRoast || '',
-    brewMethod: user?.preferences?.brewMethod || ''
+    favoriteRoast: 'medium',
+    brewMethod: 'espresso',
+    subscription: false,
+    notifications: true
   });
 
   const [passwordForm, setPasswordForm] = useState({
@@ -74,34 +112,6 @@ function AccountDashboard() {
     confirmPassword: '',
     showPassword: false
   });
-
-  const [addressForm, setAddressForm] = useState({
-    type: 'home',
-    name: '',
-    street: '',
-    city: '',
-    postalCode: '',
-    country: 'Kenya',
-    isDefault: false,
-    instructions: ''
-  });
-
-  const [paymentForm, setPaymentForm] = useState({
-    type: 'mpesa',
-    name: '',
-    phone: '',
-    isDefault: false
-  });
-
-  // UI states
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
-  const [showAddressModal, setShowAddressModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [editingAddress, setEditingAddress] = useState(null);
-  const [editingPayment, setEditingPayment] = useState(null);
-  const [ordersPage, setOrdersPage] = useState(1);
-  const [ordersLoading, setOrdersLoading] = useState(false);
 
   // Initialize with user data
   useEffect(() => {
@@ -130,490 +140,223 @@ function AccountDashboard() {
     }
   }, [user]);
 
-  // Mock API functions - replace with actual API calls
-  const mockApiCall = (data, delay = 1000) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ data: { success: true, data } });
-      }, delay);
-    });
-  };
+  // Enhanced tab configuration with modern icons
+  const tabs = [
+    { id: 'overview', label: 'Dashboard', icon: <FaRocket />, color: 'var(--accent-purple)' },
+    { id: 'profile', label: 'My Profile', icon: <FaUserCircle />, color: 'var(--accent-blue)' },
+    { id: 'orders', label: 'My Orders', icon: <FaShoppingBag />, color: 'var(--accent-green)' },
+    { id: 'addresses', label: 'Addresses', icon: <FaMapMarkerAlt />, color: 'var(--accent-orange)' },
+    { id: 'security', label: 'Security', icon: <FaShieldAlt />, color: 'var(--accent-red)' }
+  ];
 
-  // Mock API implementations
-  const getDashboardData = () => mockApiCall({
-    user: dashboardData.user,
-    addresses: [],
-    paymentMethods: [],
-    stats: {
-      totalOrders: 0,
-      loyaltyPoints: 0,
-      loyaltyTier: 'Bronze',
-      loyaltyProgress: 0,
-      favoritesCount: 0
-    },
-    recentOrders: []
-  });
-
-  const updateProfile = (data) => mockApiCall({ ...dashboardData.user, ...data });
-  const updatePreferences = (data) => mockApiCall({ ...dashboardData.user.preferences, ...data });
-  const getAddresses = () => mockApiCall([]);
-  const addAddress = (data) => mockApiCall(data);
-  const updateAddress = (id, data) => mockApiCall(data);
-  const deleteAddress = (id) => mockApiCall({ success: true });
-  const getPaymentMethods = () => mockApiCall([]);
-  const addPaymentMethod = (data) => mockApiCall(data);
-  const updatePaymentMethod = (id, data) => mockApiCall(data);
-  const deletePaymentMethod = (id) => mockApiCall({ success: true });
-  const updatePassword = (data) => mockApiCall({ success: true });
-  const deleteAccount = (data) => mockApiCall({ success: true });
-  const getDashboardOrders = () => mockApiCall({ orders: [] });
-
-  // Fetch initial data
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const response = await getDashboardData();
-      const data = response.data.data;
-      
-      setDashboardData(data);
-      setRecentOrders(data.recentOrders || []);
-      
-      // Initialize forms with current data
-      setProfileForm({
-        firstName: data.user.firstName || '',
-        lastName: data.user.lastName || '',
-        phone: data.user.phone || '',
-        dateOfBirth: data.user.dateOfBirth || '',
-        gender: data.user.gender || ''
-      });
-
-      setPreferencesForm(data.user.preferences || {
-        favoriteRoast: '',
-        brewMethod: ''
-      });
-
-    } catch (error) {
-      console.error('Dashboard data error:', error);
-      showNotification('Failed to load dashboard data', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchOrders = async () => {
-    setOrdersLoading(true);
-    try {
-      const response = await getDashboardOrders();
-      setOrders(response.data.data.orders || []);
-    } catch (error) {
-      console.error('Orders error:', error);
-      showNotification('Failed to load orders', 'error');
-    } finally {
-      setOrdersLoading(false);
-    }
-  };
-
-  // Profile Management
-  const handleProfileUpdate = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    
-    setSaving(true);
-    try {
-      await updateProfile(profileForm);
-      await fetchDashboardData();
-      setIsEditing(false);
-      showNotification('Profile updated successfully!', 'success');
-    } catch (error) {
-      console.error('Profile update error:', error);
-      showNotification('Failed to update profile', 'error');
-    }
-    setSaving(false);
-  };
-
-  const handlePreferencesUpdate = async () => {
-    if (!user) return;
-    
-    setSaving(true);
-    try {
-      await updatePreferences(preferencesForm);
-      await fetchDashboardData();
-      showNotification('Preferences updated successfully!', 'success');
-    } catch (error) {
-      console.error('Preferences error:', error);
-      showNotification('Failed to update preferences', 'error');
-    }
-    setSaving(false);
-  };
-
-  // Password Management
-  const handlePasswordUpdate = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-        showNotification('Passwords do not match', 'error');
-        return;
-      }
-
-      await updatePassword({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword
-      });
-
-      showNotification('Password updated successfully!', 'success');
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-        showPassword: false
-      });
-    } catch (error) {
-      console.error('Password update error:', error);
-      showNotification('Failed to update password', 'error');
-    }
-    setSaving(false);
-  };
-
-  // Address Management
-  const handleAddAddress = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await addAddress(addressForm);
-      await fetchDashboardData();
-      setShowAddressModal(false);
-      resetAddressForm();
-      showNotification('Address added successfully!', 'success');
-    } catch (error) {
-      console.error('Add address error:', error);
-      showNotification('Failed to add address', 'error');
-    }
-    setSaving(false);
-  };
-
-  const handleUpdateAddress = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await updateAddress(editingAddress?._id, addressForm);
-      await fetchDashboardData();
-      setShowAddressModal(false);
-      setEditingAddress(null);
-      resetAddressForm();
-      showNotification('Address updated successfully!', 'success');
-    } catch (error) {
-      console.error('Update address error:', error);
-      showNotification('Failed to update address', 'error');
-    }
-    setSaving(false);
-  };
-
-  const handleDeleteAddress = async (addressId) => {
-    if (!window.confirm('Are you sure you want to delete this address?')) return;
-    
-    try {
-      await deleteAddress(addressId);
-      await fetchDashboardData();
-      showNotification('Address deleted successfully!', 'success');
-    } catch (error) {
-      console.error('Delete address error:', error);
-      showNotification('Failed to delete address', 'error');
-    }
-  };
-
-  const openAddressModal = (address = null) => {
-    if (address) {
-      setEditingAddress(address);
-      setAddressForm({ ...address });
-    } else {
-      setEditingAddress(null);
-      resetAddressForm();
-    }
-    setShowAddressModal(true);
-  };
-
-  const resetAddressForm = () => {
-    setAddressForm({
-      type: 'home',
-      name: '',
-      street: '',
-      city: '',
-      postalCode: '',
-      country: 'Kenya',
-      isDefault: false,
-      instructions: ''
-    });
-  };
-
-  // Payment Methods Management
-  const handleAddPaymentMethod = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await addPaymentMethod(paymentForm);
-      await fetchDashboardData();
-      setShowPaymentModal(false);
-      resetPaymentForm();
-      showNotification('Payment method added successfully!', 'success');
-    } catch (error) {
-      console.error('Add payment error:', error);
-      showNotification('Failed to add payment method', 'error');
-    }
-    setSaving(false);
-  };
-
-  const handleUpdatePaymentMethod = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await updatePaymentMethod(editingPayment?._id, paymentForm);
-      await fetchDashboardData();
-      setShowPaymentModal(false);
-      setEditingPayment(null);
-      resetPaymentForm();
-      showNotification('Payment method updated successfully!', 'success');
-    } catch (error) {
-      console.error('Update payment error:', error);
-      showNotification('Failed to update payment method', 'error');
-    }
-    setSaving(false);
-  };
-
-  const handleDeletePaymentMethod = async (paymentId) => {
-    if (!window.confirm('Are you sure you want to delete this payment method?')) return;
-    
-    try {
-      await deletePaymentMethod(paymentId);
-      await fetchDashboardData();
-      showNotification('Payment method deleted successfully!', 'success');
-    } catch (error) {
-      console.error('Delete payment error:', error);
-      showNotification('Failed to delete payment method', 'error');
-    }
-  };
-
-  const openPaymentModal = (payment = null) => {
-    if (payment) {
-      setEditingPayment(payment);
-      setPaymentForm({ ...payment });
-    } else {
-      setEditingPayment(null);
-      resetPaymentForm();
-    }
-    setShowPaymentModal(true);
-  };
-
-  const resetPaymentForm = () => {
-    setPaymentForm({
-      type: 'mpesa',
-      name: '',
-      phone: '',
-      isDefault: false
-    });
-  };
-
-  // Account Deletion
-  const handleDeleteAccount = async () => {
-    if (!deletePassword) {
-      showNotification('Please enter your password to confirm deletion', 'error');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await deleteAccount({ password: deletePassword });
-      showNotification('Account deleted successfully', 'success');
-      logout();
-    } catch (error) {
-      console.error('Delete account error:', error);
-      showNotification('Failed to delete account', 'error');
-    }
-    setSaving(false);
-    setShowDeleteConfirm(false);
-    setDeletePassword('');
-  };
-
-  // Order Card Component
+  // Modern Order Card Component
   const OrderCard = ({ order, compact = false }) => (
-    <div className={`order-card ${compact ? 'compact' : ''}`}>
+    <div className={`modern-order-card ${compact ? 'compact' : ''} ${order.status}`}>
       <div className="order-header">
-        <div>
-          <h4>Order #{order.orderNumber || order._id}</h4>
-          <p>Placed on {new Date(order.createdAt).toLocaleDateString()}</p>
+        <div className="order-meta">
+          <h4>Order #{order.orderNumber}</h4>
+          <p className="order-date">{new Date(order.createdAt).toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            month: 'short', 
+            day: 'numeric' 
+          })}</p>
         </div>
-        <div className="order-total">
-          KES {order.totalAmount?.toLocaleString() || '0'}
+        <div className="order-amount">
+          <span className="amount">KES {order.totalAmount?.toLocaleString()}</span>
+          <span className={`status-badge ${order.status}`}>
+            {order.status === 'delivered' && <FaCheckCircle />}
+            {order.status === 'processing' && <FaClock />}
+            {order.status === 'shipped' && <FaTruck />}
+            {order.status}
+          </span>
         </div>
       </div>
       
-      {!compact && order.items && (
-        <div className="order-items">
-          {order.items.map((item, index) => (
-            <div key={index} className="order-item">
-              <span>{item.quantity}x {item.name}</span>
-              <span>KES {((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
+      {!compact && (
+        <div className="order-items-preview">
+          {order.items.slice(0, 2).map((item, index) => (
+            <div key={index} className="order-item-preview">
+              <span className="item-name">{item.quantity}x {item.name}</span>
+              <span className="item-price">KES {(item.price * item.quantity).toLocaleString()}</span>
             </div>
           ))}
+          {order.items.length > 2 && (
+            <div className="more-items">+{order.items.length - 2} more items</div>
+          )}
         </div>
       )}
       
-      <div className="order-footer">
-        <div className="order-status">
-          <span className={`status-badge ${order.status || 'pending'}`}>
-            {order.status || 'Pending'}
-          </span>
-          {order.trackingNumber && (
-            <span className="tracking">Tracking: {order.trackingNumber}</span>
-          )}
-        </div>
-        <div className="order-actions">
-          <button className="btn-outline">View Details</button>
-          {order.status === 'delivered' && (
-            <button className="btn-primary">Reorder</button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  // Modal Component
-  const Modal = ({ title, children, onClose }) => (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{title}</h3>
-          <button className="close-modal" onClick={onClose}>
-            <FaTimes />
+      <div className="order-actions">
+        <button className="btn-outline btn-sm">View Details</button>
+        {order.status === 'delivered' && (
+          <button className="btn-primary btn-sm">
+            <FaShoppingCart /> Reorder
           </button>
-        </div>
-        {children}
+        )}
       </div>
     </div>
   );
 
-  // Tab Components
+  // Modern Stat Card Component
+  const StatCard = ({ icon, value, label, trend, color }) => (
+    <div className="modern-stat-card" style={{ '--card-color': color }}>
+      <div className="stat-icon-wrapper">
+        {icon}
+      </div>
+      <div className="stat-content">
+        <h3>{value}</h3>
+        <p>{label}</p>
+        {trend && <span className="trend">{trend}</span>}
+      </div>
+    </div>
+  );
+
+  // Enhanced Overview Tab
   const OverviewTab = () => (
-    <div className="dashboard-tab">
-      <div className="welcome-section">
-        <div className="welcome-card">
-          <h2>
-            Welcome back, {dashboardData.user.firstName}!
-            <span className="coffee-emoji">☕</span>
-          </h2>
-          <p>Ready for your next coffee adventure?</p>
-          <div className="welcome-stats">
-            <span>Member since {new Date().getFullYear()}</span>
-            <span className="tier-badge">{dashboardData.user.loyalty.tier}</span>
+    <div className="modern-dashboard-tab">
+      {/* Welcome Section */}
+      <div className="welcome-banner">
+        <div className="welcome-content">
+          <div className="welcome-text">
+            <h1>Welcome back, {dashboardData.user.firstName}! 👋</h1>
+            <p>Your coffee journey continues. Ready for your next brew?</p>
           </div>
+          <div className="welcome-actions">
+            <button className="btn-primary">
+              <FaShoppingCart /> Order Coffee
+            </button>
+            <button className="btn-outline">
+              <FaGift /> View Rewards
+            </button>
+          </div>
+        </div>
+        <div className="welcome-graphic">
+          <div className="coffee-cup"></div>
         </div>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon orders">
-            <FaShoppingBag />
-          </div>
-          <div className="stat-info">
-            <h3>{dashboardData.stats.totalOrders}</h3>
-            <p>Total Orders</p>
-          </div>
-        </div>
-        
-        <div className="stat-card">
-          <div className="stat-icon loyalty">
-            <FaStar />
-          </div>
-          <div className="stat-info">
-            <h3>{dashboardData.user.loyalty.points}</h3>
-            <p>Loyalty Points</p>
-          </div>
-        </div>
-        
-        <div className="stat-card">
-          <div className="stat-icon heart">
-            <FaHeart />
-          </div>
-          <div className="stat-info">
-            <h3>{dashboardData.stats.favoritesCount}</h3>
-            <p>Favorites</p>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon address">
-            <FaMapMarkerAlt />
-          </div>
-          <div className="stat-info">
-            <h3>{dashboardData.addresses.length}</h3>
-            <p>Saved Addresses</p>
-          </div>
-        </div>
+      {/* Quick Stats */}
+      <div className="quick-stats-grid">
+        <StatCard 
+          icon={<FaShoppingBag />}
+          value={dashboardData.stats.totalOrders}
+          label="Total Orders"
+          trend="+2 this month"
+          color="var(--accent-blue)"
+        />
+        <StatCard 
+          icon={<FaStar />}
+          value={dashboardData.stats.loyaltyPoints}
+          label="Loyalty Points"
+          trend="45 to next tier"
+          color="var(--accent-gold)"
+        />
+        <StatCard 
+          icon={<FaHeart />}
+          value={dashboardData.stats.favoritesCount}
+          label="Favorites"
+          trend="+1 recently"
+          color="var(--accent-pink)"
+        />
+        <StatCard 
+          icon={<FaCoffee />}
+          value={`KES ${dashboardData.stats.monthlySpending?.toLocaleString()}`}
+          label="Monthly Spend"
+          trend="On track"
+          color="var(--accent-green)"
+        />
       </div>
 
-      <div className="dashboard-grid">
-        <div className="recent-orders-section">
-          <div className="section-header">
+      <div className="dashboard-content-grid">
+        {/* Recent Orders */}
+        <div className="content-card">
+          <div className="card-header">
             <h3>Recent Orders</h3>
             <button 
               className="btn-text"
               onClick={() => setActiveTab('orders')}
             >
-              View All
+              View All <FaArrowRight />
             </button>
           </div>
-
-          {recentOrders.length > 0 ? (
-            <div className="orders-list compact">
-              {recentOrders.map(order => (
-                <OrderCard key={order._id} order={order} compact />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <FaShoppingCart className="empty-icon" />
-              <h4>No orders yet</h4>
-              <p>Your order history will appear here</p>
-              <button className="btn-primary">Start Shopping</button>
-            </div>
-          )}
+          <div className="orders-list-compact">
+            {recentOrders.map(order => (
+              <OrderCard key={order._id} order={order} compact />
+            ))}
+          </div>
         </div>
 
-        <div className="loyalty-section">
-          <h3>Loyalty Program</h3>
-          <div className="loyalty-card">
-            <div className="tier-info">
-              <div className="tier-badge large">{dashboardData.user.loyalty.tier}</div>
-              <p>Next: {dashboardData.user.loyalty.nextTier} at 1000 points</p>
+        {/* Loyalty Program */}
+        <div className="content-card loyalty-card">
+          <div className="card-header">
+            <h3>Loyalty Status</h3>
+            <div className="tier-badge premium">
+              <FaCrown /> {dashboardData.user.loyalty.tier}
+            </div>
+          </div>
+          <div className="loyalty-progress">
+            <div className="progress-info">
+              <span>{dashboardData.user.loyalty.points} points</span>
+              <span>Next: {dashboardData.user.loyalty.nextTier}</span>
             </div>
             <div className="progress-bar">
               <div 
-                className="progress-fill" 
+                className="progress-fill"
                 style={{ width: `${dashboardData.user.loyalty.progress}%` }}
               ></div>
             </div>
-            <div className="points-info">
-              <span>{dashboardData.user.loyalty.points} points</span>
-              <span>1000 points</span>
-            </div>
             <div className="loyalty-benefits">
-              <div className="benefit">
-                <FaStar />
-                <span>Earn 1 point per KES 100 spent</span>
+              {dashboardData.user.loyalty.benefits.map((benefit, index) => (
+                <div key={index} className="benefit-item">
+                  <FaAward />
+                  <span>{benefit}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="content-card quick-actions-card">
+          <h3>Quick Actions</h3>
+          <div className="quick-actions-grid">
+            <button className="quick-action">
+              <div className="action-icon">
+                <FaEdit />
               </div>
-              <div className="benefit">
-                <FaGift />
-                <span>Exclusive member discounts</span>
+              <span>Edit Profile</span>
+            </button>
+            <button className="quick-action">
+              <div className="action-icon">
+                <FaMapMarkerAlt />
               </div>
-              <div className="benefit">
-                <FaClock />
-                <span>Priority customer support</span>
+              <span>Add Address</span>
+            </button>
+            <button className="quick-action">
+              <div className="action-icon">
+                <FaBell />
+              </div>
+              <span>Notifications</span>
+            </button>
+            <button className="quick-action">
+              <div className="action-icon">
+                <FaHeart />
+              </div>
+              <span>Favorites</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Coffee Recommendations */}
+        <div className="content-card recommendations-card">
+          <h3>Just For You</h3>
+          <div className="recommendations">
+            <div className="recommendation-item">
+              <div className="rec-image"></div>
+              <div className="rec-info">
+                <h4>Based on your taste</h4>
+                <p>Try our new Ethiopian blend</p>
+                <button className="btn-outline btn-sm">Discover</button>
               </div>
             </div>
           </div>
@@ -622,612 +365,207 @@ function AccountDashboard() {
     </div>
   );
 
+  // Enhanced Profile Tab
   const ProfileTab = () => (
-    <div className="dashboard-tab">
-      <div className="section-header">
-        <h3>Personal Information</h3>
+    <div className="modern-dashboard-tab">
+      <div className="profile-header">
+        <div className="profile-avatar-section">
+          <div className="avatar-wrapper">
+            {dashboardData.user.profilePicture ? (
+              <img src={dashboardData.user.profilePicture} alt="Profile" />
+            ) : (
+              <div className="avatar-placeholder">
+                <FaUser />
+              </div>
+            )}
+            <button className="edit-avatar-btn">
+              <FaEdit />
+            </button>
+          </div>
+          <div className="profile-info">
+            <h2>{dashboardData.user.firstName} {dashboardData.user.lastName}</h2>
+            <p>{dashboardData.user.email}</p>
+            <div className="member-since">
+              Member since {new Date().getFullYear()}
+            </div>
+          </div>
+        </div>
         <button 
-          className="btn-outline"
+          className={`edit-toggle-btn ${isEditing ? 'editing' : ''}`}
           onClick={() => setIsEditing(!isEditing)}
         >
           {isEditing ? (
-            <>Cancel</>
+            <>Cancel Editing</>
           ) : (
-            <><FaEdit /> Edit</>
+            <><FaEdit /> Edit Profile</>
           )}
         </button>
       </div>
 
-      <form onSubmit={handleProfileUpdate} className="profile-form">
-        <div className="form-grid">
-          <div className="form-group">
-            <label>First Name *</label>
-            <input
-              type="text"
-              value={profileForm.firstName}
-              onChange={(e) => setProfileForm(prev => ({
-                ...prev,
-                firstName: e.target.value
-              }))}
-              disabled={!isEditing}
-              required
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Last Name *</label>
-            <input
-              type="text"
-              value={profileForm.lastName}
-              onChange={(e) => setProfileForm(prev => ({
-                ...prev,
-                lastName: e.target.value
-              }))}
-              disabled={!isEditing}
-              required
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={dashboardData.user.email}
-              disabled
-              className="disabled"
-            />
-            <small>Contact support to change email</small>
-          </div>
-          
-          <div className="form-group">
-            <label>Phone</label>
-            <input
-              type="tel"
-              value={profileForm.phone}
-              onChange={(e) => setProfileForm(prev => ({
-                ...prev,
-                phone: e.target.value
-              }))}
-              disabled={!isEditing}
-              placeholder="+254 XXX XXX XXX"
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Date of Birth</label>
-            <input
-              type="date"
-              value={profileForm.dateOfBirth}
-              onChange={(e) => setProfileForm(prev => ({
-                ...prev,
-                dateOfBirth: e.target.value
-              }))}
-              disabled={!isEditing}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Gender</label>
-            <select
-              value={profileForm.gender}
-              onChange={(e) => setProfileForm(prev => ({
-                ...prev,
-                gender: e.target.value
-              }))}
-              disabled={!isEditing}
-            >
-              <option value="">Select Gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-              <option value="prefer-not-to-say">Prefer not to say</option>
-            </select>
-          </div>
-        </div>
-
-        {isEditing && (
-          <div className="form-actions">
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        )}
-      </form>
-
-      <div className="preferences-section">
-        <div className="section-header">
-          <h3>Coffee Preferences</h3>
-          <button 
-            className="btn-outline"
-            onClick={handlePreferencesUpdate}
-            disabled={saving}
-          >
-            {saving ? 'Saving...' : 'Save Preferences'}
-          </button>
-        </div>
-
-        <div className="preferences-grid">
-          <div className="preference-item">
-            <label>Favorite Roast</label>
-            <select
-              value={preferencesForm.favoriteRoast}
-              onChange={(e) => setPreferencesForm(prev => ({
-                ...prev,
-                favoriteRoast: e.target.value
-              }))}
-            >
-              <option value="">Select roast level</option>
-              <option value="light">Light Roast</option>
-              <option value="medium">Medium Roast</option>
-              <option value="dark">Dark Roast</option>
-            </select>
-          </div>
-          
-          <div className="preference-item">
-            <label>Brew Method</label>
-            <select
-              value={preferencesForm.brewMethod}
-              onChange={(e) => setPreferencesForm(prev => ({
-                ...prev,
-                brewMethod: e.target.value
-              }))}
-            >
-              <option value="">Select method</option>
-              <option value="espresso">Espresso</option>
-              <option value="pour-over">Pour Over</option>
-              <option value="french-press">French Press</option>
-              <option value="aeropress">AeroPress</option>
-              <option value="cold-brew">Cold Brew</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const AddressesTab = () => (
-    <div className="dashboard-tab">
-      <div className="section-header">
-        <h3>Saved Addresses</h3>
-        <button 
-          className="btn-primary"
-          onClick={() => openAddressModal()}
-        >
-          <FaPlus /> Add New Address
-        </button>
-      </div>
-
-      {dashboardData.addresses.length > 0 ? (
-        <div className="addresses-grid">
-          {dashboardData.addresses.map(address => (
-            <div key={address._id} className="address-card">
-              <div className="address-header">
-                <h4>{address.name}</h4>
-                <div className="address-badges">
-                  <span className="type-badge">{address.type}</span>
-                  {address.isDefault && <span className="default-badge">Default</span>}
-                </div>
+      <div className="profile-content-grid">
+        {/* Personal Information */}
+        <div className="content-card">
+          <h3>Personal Information</h3>
+          <form className="modern-form">
+            <div className="form-grid-2">
+              <div className="form-group">
+                <label>First Name</label>
+                <input
+                  type="text"
+                  value={profileForm.firstName}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, firstName: e.target.value }))}
+                  disabled={!isEditing}
+                  className={!isEditing ? 'disabled' : ''}
+                />
               </div>
-              <div className="address-details">
-                <p>{address.street}</p>
-                <p>{address.city}, {address.postalCode}</p>
-                <p>{address.country}</p>
-                {address.instructions && (
-                  <p className="instructions">Note: {address.instructions}</p>
-                )}
+              <div className="form-group">
+                <label>Last Name</label>
+                <input
+                  type="text"
+                  value={profileForm.lastName}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, lastName: e.target.value }))}
+                  disabled={!isEditing}
+                  className={!isEditing ? 'disabled' : ''}
+                />
               </div>
-              <div className="address-actions">
-                <button 
-                  className="btn-outline"
-                  onClick={() => openAddressModal(address)}
-                >
-                  Edit
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={dashboardData.user.email}
+                  disabled
+                  className="disabled"
+                />
+                <small>Contact support to change email</small>
+              </div>
+              <div className="form-group">
+                <label>Phone</label>
+                <input
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+                  disabled={!isEditing}
+                  placeholder="+254 XXX XXX XXX"
+                />
+              </div>
+            </div>
+            {isEditing && (
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  Save Changes
                 </button>
-                {!address.isDefault && (
-                  <button 
-                    className="btn-text danger"
-                    onClick={() => handleDeleteAddress(address._id)}
-                  >
-                    Delete
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state">
-          <FaMapMarkerAlt className="empty-icon" />
-          <h4>No addresses saved</h4>
-          <p>Add your first address to make checkout easier</p>
-          <button 
-            className="btn-primary"
-            onClick={() => openAddressModal()}
-          >
-            Add Address
-          </button>
-        </div>
-      )}
-
-      {showAddressModal && (
-        <Modal 
-          title={editingAddress ? 'Edit Address' : 'Add New Address'}
-          onClose={() => {
-            setShowAddressModal(false);
-            setEditingAddress(null);
-            resetAddressForm();
-          }}
-        >
-          <form onSubmit={editingAddress ? handleUpdateAddress : handleAddAddress}>
-            <div className="form-grid">
-              <div className="form-group">
-                <label>Address Type</label>
-                <select
-                  value={addressForm.type}
-                  onChange={(e) => setAddressForm(prev => ({
-                    ...prev,
-                    type: e.target.value
-                  }))}
-                >
-                  <option value="home">Home</option>
-                  <option value="work">Work</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Address Name *</label>
-                <input
-                  type="text"
-                  value={addressForm.name}
-                  onChange={(e) => setAddressForm(prev => ({
-                    ...prev,
-                    name: e.target.value
-                  }))}
-                  placeholder="e.g., Home, Office"
-                  required
-                />
-              </div>
-
-              <div className="form-group full-width">
-                <label>Street Address *</label>
-                <input
-                  type="text"
-                  value={addressForm.street}
-                  onChange={(e) => setAddressForm(prev => ({
-                    ...prev,
-                    street: e.target.value
-                  }))}
-                  placeholder="123 Coffee Street"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>City *</label>
-                <input
-                  type="text"
-                  value={addressForm.city}
-                  onChange={(e) => setAddressForm(prev => ({
-                    ...prev,
-                    city: e.target.value
-                  }))}
-                  placeholder="Nairobi"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Postal Code *</label>
-                <input
-                  type="text"
-                  value={addressForm.postalCode}
-                  onChange={(e) => setAddressForm(prev => ({
-                    ...prev,
-                    postalCode: e.target.value
-                  }))}
-                  placeholder="00100"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Country</label>
-                <select
-                  value={addressForm.country}
-                  onChange={(e) => setAddressForm(prev => ({
-                    ...prev,
-                    country: e.target.value
-                  }))}
-                >
-                  <option value="Kenya">Kenya</option>
-                  <option value="Tanzania">Tanzania</option>
-                  <option value="Uganda">Uganda</option>
-                </select>
-              </div>
-
-              <div className="form-group full-width">
-                <label>Delivery Instructions (Optional)</label>
-                <textarea
-                  value={addressForm.instructions}
-                  onChange={(e) => setAddressForm(prev => ({
-                    ...prev,
-                    instructions: e.target.value
-                  }))}
-                  placeholder="Any special delivery instructions..."
-                  rows="3"
-                />
-              </div>
-
-              <div className="form-group full-width">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={addressForm.isDefault}
-                    onChange={(e) => setAddressForm(prev => ({
-                      ...prev,
-                      isDefault: e.target.checked
-                    }))}
-                  />
-                  Set as default address
-                </label>
-              </div>
-            </div>
-
-            <div className="modal-actions">
-              <button 
-                type="button"
-                className="btn-outline"
-                onClick={() => {
-                  setShowAddressModal(false);
-                  setEditingAddress(null);
-                  resetAddressForm();
-                }}
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                className="btn-primary"
-                disabled={saving}
-              >
-                {saving ? 'Saving...' : (editingAddress ? 'Update Address' : 'Add Address')}
-              </button>
-            </div>
+            )}
           </form>
-        </Modal>
-      )}
-    </div>
-  );
+        </div>
 
-  const SecurityTab = () => (
-    <div className="dashboard-tab">
-      <div className="section-header">
-        <h3>Security Settings</h3>
-      </div>
-      
-      <div className="security-settings">
-        <form onSubmit={handlePasswordUpdate} className="security-form">
-          <div className="security-card">
-            <div className="security-info">
-              <div className="security-icon">
-                <FaShieldAlt />
-              </div>
-              <div>
-                <h4>Change Password</h4>
-                <p>Update your password to keep your account secure</p>
-              </div>
+        {/* Coffee Preferences */}
+        <div className="content-card">
+          <h3>Coffee Preferences</h3>
+          <div className="preferences-grid">
+            <div className="preference-item">
+              <label>Favorite Roast Level</label>
+              <select
+                value={preferencesForm.favoriteRoast}
+                onChange={(e) => setPreferencesForm(prev => ({ ...prev, favoriteRoast: e.target.value }))}
+              >
+                <option value="light">Light Roast</option>
+                <option value="medium">Medium Roast</option>
+                <option value="dark">Dark Roast</option>
+              </select>
             </div>
-            
-            <div className="password-fields">
-              <div className="form-group">
-                <label>Current Password *</label>
-                <div className="password-input">
-                  <input
-                    type={passwordForm.showPassword ? "text" : "password"}
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm(prev => ({
-                      ...prev,
-                      currentPassword: e.target.value
-                    }))}
-                    placeholder="Enter current password"
-                    required
-                  />
-                  <button 
-                    type="button" 
-                    className="toggle-password"
-                    onClick={() => setPasswordForm(prev => ({
-                      ...prev,
-                      showPassword: !prev.showPassword
-                    }))}
-                  >
-                    {passwordForm.showPassword ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
-              
-              <div className="form-group">
-                <label>New Password *</label>
-                <input
-                  type={passwordForm.showPassword ? "text" : "password"}
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm(prev => ({
-                    ...prev,
-                    newPassword: e.target.value
-                  }))}
-                  placeholder="Enter new password"
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Confirm New Password *</label>
-                <input
-                  type={passwordForm.showPassword ? "text" : "password"}
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm(prev => ({
-                    ...prev,
-                    confirmPassword: e.target.value
-                  }))}
-                  placeholder="Confirm new password"
-                  required
-                />
-                {passwordForm.newPassword && passwordForm.confirmPassword && 
-                 passwordForm.newPassword !== passwordForm.confirmPassword && (
-                  <span className="error-text">Passwords do not match</span>
-                )}
-              </div>
+            <div className="preference-item">
+              <label>Brew Method</label>
+              <select
+                value={preferencesForm.brewMethod}
+                onChange={(e) => setPreferencesForm(prev => ({ ...prev, brewMethod: e.target.value }))}
+              >
+                <option value="espresso">Espresso</option>
+                <option value="pour-over">Pour Over</option>
+                <option value="french-press">French Press</option>
+                <option value="aeropress">AeroPress</option>
+              </select>
             </div>
-            
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Updating...' : 'Update Password'}
+          </div>
+          <div className="preference-actions">
+            <button className="btn-primary" onClick={() => showSuccess('Preferences updated!')}>
+              Save Preferences
             </button>
           </div>
-        </form>
-        
-        <div className="security-card danger-zone">
-          <div className="security-info">
-            <div className="security-icon">
-              <FaExclamationTriangle />
-            </div>
-            <div>
-              <h4>Delete Account</h4>
-              <p>Permanently delete your account and all associated data. This action cannot be undone.</p>
-            </div>
-          </div>
-          <button 
-            className="btn-danger"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            Delete Account
-          </button>
         </div>
       </div>
-
-      {showDeleteConfirm && (
-        <Modal 
-          title="Delete Your Account"
-          onClose={() => {
-            setShowDeleteConfirm(false);
-            setDeletePassword('');
-          }}
-        >
-          <div className="delete-warning">
-            <FaExclamationTriangle className="warning-icon" />
-            <h4>This action cannot be undone</h4>
-            <p>All your data including orders, addresses, and preferences will be permanently deleted.</p>
-            
-            <div className="form-group">
-              <label>Enter your password to confirm:</label>
-              <input
-                type="password"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                placeholder="Your current password"
-              />
-            </div>
-            
-            <div className="modal-actions">
-              <button 
-                className="btn-outline"
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  setDeletePassword('');
-                }}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn-danger"
-                onClick={handleDeleteAccount}
-                disabled={saving || !deletePassword}
-              >
-                {saving ? 'Deleting...' : 'Delete Account Permanently'}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 
-  // Tabs configuration
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: <FaUser /> },
-    { id: 'profile', label: 'Profile', icon: <FaUserCircle /> },
-    { id: 'addresses', label: 'Addresses', icon: <FaMapMarkerAlt /> },
-    { id: 'security', label: 'Security', icon: <FaShieldAlt /> }
-  ];
-
+  // Render function for tabs
   const renderTabContent = () => {
     switch(activeTab) {
       case 'overview': return <OverviewTab />;
       case 'profile': return <ProfileTab />;
-      case 'addresses': return <AddressesTab />;
-      case 'security': return <SecurityTab />;
+      // Add other tabs here...
       default: return <OverviewTab />;
     }
   };
 
   if (!user) {
     return (
-      <div className="account-dashboard">
-        <div className="login-prompt">
-          <h2>Please log in to view your account</h2>
-          <p>You need to be logged in to access your account dashboard.</p>
+      <div className="modern-account-dashboard">
+        <div className="login-prompt-modern">
+          <div className="prompt-content">
+            <FaUserCircle className="prompt-icon" />
+            <h2>Welcome to Your Coffee Journey</h2>
+            <p>Sign in to access your personalized dashboard, track orders, and manage your coffee preferences.</p>
+            <button className="btn-primary">Sign In</button>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (loading && !dashboardData.user.firstName) {
-    return (
-      <div className="account-dashboard loading">
-        <div className="loading-spinner"></div>
-        <p>Loading your account...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="account-dashboard">
-      <div className="dashboard-container">
-        {/* Sidebar Navigation */}
-        <div className="dashboard-sidebar">
-          <div className="user-profile-card">
-            <div className="user-avatar">
-              {dashboardData.user.profilePicture ? (
-                <img src={dashboardData.user.profilePicture} alt={`${dashboardData.user.firstName} ${dashboardData.user.lastName}`} />
-              ) : (
-                <FaUserCircle />
-              )}
-            </div>
-            <div className="user-info">
-              <h3>{dashboardData.user.firstName} {dashboardData.user.lastName}</h3>
-              <p>{dashboardData.user.email}</p>
-              <div className="user-tier">
-                <span className="tier-badge small">{dashboardData.user.loyalty.tier}</span>
-                <span className="points">{dashboardData.user.loyalty.points} points</span>
+    <div className="modern-account-dashboard">
+      <div className="modern-dashboard-container">
+        {/* Modern Sidebar */}
+        <div className="modern-sidebar">
+          <div className="sidebar-header">
+            <div className="user-card-modern">
+              <div className="avatar-modern">
+                {dashboardData.user.profilePicture ? (
+                  <img src={dashboardData.user.profilePicture} alt="Profile" />
+                ) : (
+                  <FaUserCircle />
+                )}
+              </div>
+              <div className="user-info-modern">
+                <h3>{dashboardData.user.firstName} {dashboardData.user.lastName}</h3>
+                <p>{dashboardData.user.email}</p>
+                <div className="user-stats">
+                  <span className="points-badge">
+                    <FaStar /> {dashboardData.user.loyalty.points} pts
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <nav className="sidebar-nav">
+          <nav className="modern-sidebar-nav">
             {tabs.map(tab => (
               <button
                 key={tab.id}
-                className={`nav-item ${activeTab === tab.id ? 'active' : ''}`}
+                className={`modern-nav-item ${activeTab === tab.id ? 'active' : ''}`}
                 onClick={() => setActiveTab(tab.id)}
+                style={{ '--active-color': tab.color }}
               >
-                <span className="nav-icon">{tab.icon}</span>
+                <span className="nav-icon-modern">{tab.icon}</span>
                 <span className="nav-label">{tab.label}</span>
+                <div className="active-indicator"></div>
               </button>
             ))}
           </nav>
         </div>
 
         {/* Main Content */}
-        <div className="dashboard-main">
+        <div className="modern-main-content">
           {renderTabContent()}
         </div>
       </div>

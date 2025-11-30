@@ -1,35 +1,70 @@
-// api/api.js - Add missing authentication functions
+// api/api.js - COMPLETE FIXED VERSION
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
   headers: { 'Content-Type': 'application/json' },
-  withCredentials: true // include cookies if server uses them
+  withCredentials: true
 });
 
+// Request interceptor to add token
+API.interceptors.request.use(
+  (config) => {
+    const authData = localStorage.getItem('auth');
+    const token = authData ? JSON.parse(authData).token : null;
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor to handle auth errors
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth');
+      if (window.location.pathname.startsWith('/admin')) {
+        window.location.href = '/admin/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ---- Auth ----
-export const register = (payload) => API.post('/auth/register', payload);
-export const verifyEmail = (payload) => API.post('/auth/verify-email', payload);
-export const resendVerificationCode = (payload) => API.post('/auth/resend-verification', payload); // adjust endpoint if different
-export const googleAuth = (payload) => API.post('/auth/google', payload); // adjust endpoint if different
-export const login = (payload) => API.post('/auth/login', payload);
+export const register = (payload) => API.post('/auth/customer/register', payload);
+export const login = (payload) => API.post('/auth/customer/login', payload);
+export const loginAdmin = (payload) => API.post('/auth/admin/login', payload);
 export const logout = () => API.post('/auth/logout');
+export const getCurrentUser = () => API.get('/auth/me');
+export const verifyEmail = (payload) => API.post('/auth/verify-email', payload);
+export const resendVerification = (payload) => API.post('/auth/resend-verification', payload);
 export const checkEmail = (params) => API.get('/auth/check-email', { params });
 export const forgotPassword = (payload) => API.post('/auth/forgot-password', payload);
 export const resetPassword = (payload) => API.post('/auth/reset-password', payload);
-export const reauth = (payload) => API.post('/auth/reauth', payload);
-export const initChangeEmail = (payload) => API.post('/auth/profile/init-change-email', payload);
-export const verifyPendingEmail = (params) => API.get('/auth/profile/verify-pending-email', { params });
-export const updateName = (payload) => API.post('/auth/profile/update-name', payload);
-export const changePassword = (payload) => API.post('/auth/profile/change-password', payload);
+
+// ---- Admin Routes ----
+export const getDashboardStats = (params) => API.get('/admin/dashboard/stats', { params });
+export const getSalesAnalytics = (params) => API.get('/admin/analytics/sales', { params });
+export const getAdminUsers = (params) => API.get('/admin/users', { params });
+export const getAdminOrders = (params) => API.get('/admin/orders', { params });
+export const getAdminProducts = (params) => API.get('/admin/products', { params });
+export const getAdminOrderDetail = (id) => API.get(`/admin/orders/${id}`);
+export const updateOrderStatus = (id, payload) => API.put(`/admin/orders/${id}/status`, payload);
+export const createProduct = (payload) => API.post('/admin/products', payload);
+export const updateProduct = (id, payload) => API.put(`/admin/products/${id}`, payload);
+export const deleteProduct = (id) => API.delete(`/admin/products/${id}`);
 
 // ---- Profile ----
 export const getProfile = () => API.get('/auth/profile');
 export const updateProfile = (payload) => API.put('/auth/profile', payload);
-export const saveShippingInfo = (payload) => API.put('/auth/shipping-info', payload);
 
 // ---- Orders / Checkout ----
-export const createOrder = (payload) => API.post('/orders/checkout', payload);
+export const createOrder = (payload) => API.post('/orders', payload);
 export const getMyOrders = () => API.get('/orders/my');
 export const getOrderById = (orderId) => API.get(`/orders/${orderId}`);
 
@@ -37,12 +72,9 @@ export const getOrderById = (orderId) => API.get(`/orders/${orderId}`);
 export const processMpesaPayment = (payload) => API.post('/payments/mpesa', payload);
 export const processCardPayment = (payload) => API.post('/payments/card', payload);
 export const processCashOnDelivery = (payload) => API.post('/payments/cash-on-delivery', payload);
-export const getPaymentMethods = (userId) => API.get(`/payments/methods/${userId}`);
-export const setDefaultPaymentMethod = (methodId) => API.patch(`/payments/methods/${methodId}/set-default`);
 
-// ---- Products / Admin (examples) ----
+// ---- Products ----
 export const fetchProducts = (params) => API.get('/products', { params });
 export const getProductById = (id) => API.get(`/products/${id}`);
 
-// Default export for reuse
 export default API;

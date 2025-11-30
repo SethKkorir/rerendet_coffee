@@ -1,29 +1,17 @@
-// components/Common/Notification.jsx
-import React, { useContext, useEffect } from 'react';
+// components/Common/Notification.jsx - UPDATED
+import React, { useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
 import './Notification.css';
 
 const Notification = () => {
-  const { alert, hideAlert } = useContext(AppContext);
+  const { notifications, removeNotification } = useContext(AppContext);
 
-  // Auto-hide notification after 5 seconds
-  useEffect(() => {
-    if (alert?.isVisible) {
-      const timer = setTimeout(() => {
-        hideAlert();
-      }, 5000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [alert, hideAlert]);
-
-  // Don't render if no alert or alert is not visible
-  if (!alert || !alert.isVisible || !alert.message) {
+  if (!notifications.length) {
     return null;
   }
 
-  const getAlertClass = () => {
-    switch (alert.type) {
+  const getNotificationClass = (type) => {
+    switch (type) {
       case 'success':
         return 'notification success';
       case 'error':
@@ -36,8 +24,8 @@ const Notification = () => {
     }
   };
 
-  const getIcon = () => {
-    switch (alert.type) {
+  const getIcon = (type) => {
+    switch (type) {
       case 'success':
         return '✅';
       case 'error':
@@ -51,18 +39,29 @@ const Notification = () => {
   };
 
   return (
-    <div className={getAlertClass()}>
-      <div className="notification-content">
-        <span className="notification-icon">{getIcon()}</span>
-        <span className="notification-message">{alert.message}</span>
-        <button 
-          className="notification-close" 
-          onClick={hideAlert}
-          aria-label="Close notification"
+    <div className="notifications-container">
+      {notifications.map((notification) => (
+        <div 
+          key={notification.id} 
+          className={getNotificationClass(notification.type)}
         >
-          ×
-        </button>
-      </div>
+          <div className="notification-content">
+            <span className="notification-icon">
+              {getIcon(notification.type)}
+            </span>
+            <span className="notification-message">
+              {notification.message}
+            </span>
+            <button 
+              className="notification-close" 
+              onClick={() => removeNotification(notification.id)}
+              aria-label="Close notification"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

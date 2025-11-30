@@ -1,6 +1,15 @@
+// context/AppContext.js - COMPLETE REWRITTEN VERSION
 import React, { createContext, useCallback, useEffect, useState, useMemo } from 'react';
-import axios from 'axios';
-import { jwtDecode } from 'jwt-decode';
+import API, { 
+  login as apiLogin, 
+  loginAdmin as apiLoginAdmin, 
+  getCurrentUser,
+  getDashboardStats,
+  getSalesAnalytics,
+  getAdminUsers,
+  getAdminOrders,
+  getAdminProducts
+} from '../api/api';
 
 export const AppContext = createContext(null);
 
@@ -9,6 +18,11 @@ export function AppProvider({ children }) {
   const [token, setToken] = useState(null);
   const [userType, setUserType] = useState(null);
   const [loading, setLoading] = useState(false);
+  
+  // Notification system
+  const [notifications, setNotifications] = useState([]);
+  
+  // Alert system (for backward compatibility)
   const [alert, setAlert] = useState({ 
     isVisible: false, 
     message: '', 
@@ -19,6 +33,78 @@ export function AppProvider({ children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // ==================== NOTIFICATION SYSTEM ====================
+
+  // Add a new notification
+  const addNotification = useCallback((message, type = 'info', duration = 5000) => {
+    const id = Date.now() + Math.random();
+    const newNotification = {
+      id,
+      message,
+      type,
+      duration,
+      timestamp: new Date()
+    };
+
+    setNotifications(prev => [...prev, newNotification]);
+
+    // Auto-remove after duration
+    if (duration > 0) {
+      setTimeout(() => {
+        removeNotification(id);
+      }, duration);
+    }
+
+    return id;
+  }, []);
+
+  // Remove a specific notification
+  const removeNotification = useCallback((id) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  }, []);
+
+  // Clear all notifications
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
+
+  // Success notification
+  const showSuccess = useCallback((message, duration = 5000) => {
+    return addNotification(message, 'success', duration);
+  }, [addNotification]);
+
+  // Error notification
+  const showError = useCallback((message, duration = 5000) => {
+    return addNotification(message, 'error', duration);
+  }, [addNotification]);
+
+  // Warning notification
+  const showWarning = useCallback((message, duration = 5000) => {
+    return addNotification(message, 'warning', duration);
+  }, [addNotification]);
+
+  // Info notification
+  const showInfo = useCallback((message, duration = 5000) => {
+    return addNotification(message, 'info', duration);
+  }, [addNotification]);
+
+  // ==================== ALERT SYSTEM (Backward Compatibility) ====================
+
+  const showAlert = useCallback((message, type = 'info') => {
+    // Also add as notification for the new system
+    addNotification(message, type);
+    
+    // Keep old alert system for components that still use it
+    setAlert({ isVisible: true, message, type });
+  }, [addNotification]);
+
+  const hideAlert = useCallback(() => {
+    setAlert({ isVisible: false, message: '', type: 'info' });
+  }, []);
+
+  // Alias for backward compatibility
+  const showNotification = showAlert;
+
   // ==================== AUTHENTICATION METHODS ====================
 
   // Clear authentication function
@@ -26,43 +112,45 @@ export function AppProvider({ children }) {
     setUser(null);
     setToken(null);
     setUserType(null);
-    delete axios.defaults.headers.common['Authorization'];
     localStorage.removeItem('auth');
-    console.log('🔓 Auth cleared');
+    console.log('🔓 Auth cleared completely');
   }, []);
 
   // Set authentication
   const setAuth = useCallback((userData, authToken, type) => {
+    if (!authToken || !userData) {
+      console.error('❌ Invalid auth data provided');
+      return;
+    }
+
     setUser(userData);
     setToken(authToken);
     setUserType(type);
     
-    if (authToken) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
-    }
-    
+    // Store in localStorage
     localStorage.setItem('auth', JSON.stringify({
       user: userData,
       token: authToken,
       userType: type
     }));
 
-    console.log('🔐 Auth set:', userData.email, 'Type:', type);
+    console.log('🔐 Auth set for:', userData.email, 'Type:', type);
   }, []);
 
   // Validate JWT token
   const validateToken = useCallback((token) => {
-    if (!token) return false;
+    if (!token) {
+      console.error('❌ No token provided for validation');
+      return false;
+    }
     
     try {
-      // Basic JWT structure validation
       const parts = token.split('.');
       if (parts.length !== 3) {
         console.error('❌ Invalid token structure');
         return false;
       }
       
-      // Check if token is expired
       const payload = JSON.parse(atob(parts[1]));
       const currentTime = Date.now() / 1000;
       
@@ -78,103 +166,81 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  // ==================== ALERT/NOTIFICATION METHODS ====================
-
-  const showAlert = useCallback((message, type = 'info') => {
-    setAlert({ isVisible: true, message, type });
-  }, []);
-
-  const showNotification = useCallback((message, type = 'info') => {
-    showAlert(message, type);
-  }, [showAlert]);
-
-  const hideAlert = useCallback(() => {
-    setAlert({ isVisible: false, message: '', type: 'info' });
-  }, []);
-
   // ==================== CART METHODS ====================
 
-  // Add to cart with size selection
-const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
-  setCartState(prevCart => {
-    const productId = product._id;
-    
-    if (!productId) {
-      console.error('❌ Cannot add product to cart: Missing _id');
-      return prevCart;
-    }
-
-    const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-    if (!objectIdRegex.test(productId.toString())) {
-      console.error('❌ Invalid product ID format:', productId);
-      return prevCart;
-    }
-
-    // NEW LOGIC: Handle both product structures
-    let itemPrice = product.price; // Use the price that's already set on the product
-    let finalSize = selectedSize || product.size || product.selectedSize || '250g';
-    
-    // If the product has a sizes array, use it to validate the price
-    if (product.sizes && product.sizes.length > 0) {
-      const selectedSizeData = product.sizes.find(size => size.size === finalSize);
-      if (selectedSizeData) {
-        itemPrice = selectedSizeData.price;
-      } else {
-        // Fallback to first size if selected size not found
-        itemPrice = product.sizes[0].price;
-        finalSize = product.sizes[0].size;
-      }
-    }
-    
-    // If no price found, use a default
-    if (!itemPrice || itemPrice <= 0) {
-      console.warn('⚠️ No valid price found for product, using default');
-      itemPrice = 1000; // Default price
-    }
-
-    // Check if item with same product ID and size already exists in cart
-    const existingItemIndex = prevCart.findIndex(item => 
-      item._id === productId.toString() && item.size === finalSize
-    );
-    
-    if (existingItemIndex > -1) {
-      // Update existing item with same product ID and size
-      return prevCart.map((item, index) =>
-        index === existingItemIndex
-          ? { 
-              ...item, 
-              quantity: item.quantity + quantity,
-              itemTotal: (item.quantity + quantity) * item.price
-            }
-          : item
-      );
-    } else {
-      // Add new item with size information
-      const cartItem = {
-        _id: productId.toString(),
-        productId: productId.toString(),
-        name: product.name,
-        price: itemPrice,
-        quantity: quantity,
-        size: finalSize,
-        itemTotal: itemPrice * quantity,
-        images: product.images || [],
-        category: product.category,
-        roastLevel: product.roastLevel,
-        origin: product.origin,
-        flavorNotes: product.flavorNotes,
-        badge: product.badge
-      };
+  const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
+    setCartState(prevCart => {
+      const productId = product._id;
       
-      console.log('🛒 Adding to cart:', cartItem);
-      return [...prevCart, cartItem];
-    }
-  });
-  
-  const sizeText = selectedSize ? ` (${selectedSize})` : '';
-  showAlert(`Added ${quantity} ${product.name}${sizeText} to cart`, 'success');
-}, [showAlert]);
-  // Remove from cart
+      if (!productId) {
+        console.error('❌ Cannot add product to cart: Missing _id');
+        return prevCart;
+      }
+
+      const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+      if (!objectIdRegex.test(productId.toString())) {
+        console.error('❌ Invalid product ID format:', productId);
+        return prevCart;
+      }
+
+      let itemPrice = product.price;
+      let finalSize = selectedSize || product.size || product.selectedSize || '250g';
+      
+      if (product.sizes && product.sizes.length > 0) {
+        const selectedSizeData = product.sizes.find(size => size.size === finalSize);
+        if (selectedSizeData) {
+          itemPrice = selectedSizeData.price;
+        } else {
+          itemPrice = product.sizes[0].price;
+          finalSize = product.sizes[0].size;
+        }
+      }
+      
+      if (!itemPrice || itemPrice <= 0) {
+        console.warn('⚠️ No valid price found for product, using default');
+        itemPrice = 1000;
+      }
+
+      const existingItemIndex = prevCart.findIndex(item => 
+        item._id === productId.toString() && item.size === finalSize
+      );
+      
+      if (existingItemIndex > -1) {
+        return prevCart.map((item, index) =>
+          index === existingItemIndex
+            ? { 
+                ...item, 
+                quantity: item.quantity + quantity,
+                itemTotal: (item.quantity + quantity) * item.price
+              }
+            : item
+        );
+      } else {
+        const cartItem = {
+          _id: productId.toString(),
+          productId: productId.toString(),
+          name: product.name,
+          price: itemPrice,
+          quantity: quantity,
+          size: finalSize,
+          itemTotal: itemPrice * quantity,
+          images: product.images || [],
+          category: product.category,
+          roastLevel: product.roastLevel,
+          origin: product.origin,
+          flavorNotes: product.flavorNotes,
+          badge: product.badge
+        };
+        
+        console.log('🛒 Adding to cart:', cartItem);
+        return [...prevCart, cartItem];
+      }
+    });
+    
+    const sizeText = selectedSize ? ` (${selectedSize})` : '';
+    showSuccess(`Added ${quantity} ${product.name}${sizeText} to cart`);
+  }, [showSuccess]);
+
   const removeFromCart = useCallback((productId, size = null) => {
     setCartState(prevCart => {
       const updatedCart = prevCart.filter(item => {
@@ -188,10 +254,9 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
       console.log('🗑️ Removed from cart:', productId, size);
       return updatedCart;
     });
-    showAlert('Product removed from cart', 'info');
-  }, [showAlert]);
+    showInfo('Product removed from cart');
+  }, [showInfo]);
 
-  // Update cart quantity
   const updateCartQuantity = useCallback((productId, quantity, size = null) => {
     if (quantity <= 0) {
       removeFromCart(productId, size);
@@ -213,24 +278,20 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
     );
   }, [removeFromCart]);
 
-  // Clear entire cart
   const clearCart = useCallback(() => {
     setCartState([]);
     console.log('🛒 Cart cleared');
-    showAlert('Cart cleared', 'info');
-  }, [showAlert]);
+    showInfo('Cart cleared');
+  }, [showInfo]);
 
-  // Get cart total
   const getCartTotal = useCallback(() => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   }, [cart]);
 
-  // Get cart item count
   const getCartItemCount = useCallback(() => {
     return cart.reduce((count, item) => count + item.quantity, 0);
   }, [cart]);
 
-  // Get cart count for Navbar
   const cartCount = getCartItemCount();
 
   // ==================== UI METHODS ====================
@@ -239,7 +300,6 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
   const closeCart = useCallback(() => setIsCartOpen(false), []);
   const toggleCart = useCallback(() => setIsCartOpen(prev => !prev), []);
 
-  // Mobile menu methods
   const setMobileMenuOpenState = useCallback((isOpen) => {
     setMobileMenuOpen(isOpen);
     if (isOpen) {
@@ -251,11 +311,11 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
 
   // ==================== AUTH API METHODS ====================
 
-  // Customer login - USED BY NAVBAR
+  // Customer login
   const login = useCallback(async (credentials) => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/auth/customer/login', credentials);
+      const response = await apiLogin(credentials);
       const { user: userData, token: authToken } = response.data.data;
       
       if (!validateToken(authToken)) {
@@ -263,22 +323,22 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
       }
       
       setAuth(userData, authToken, 'customer');
-      showAlert('Login successful! Welcome back!', 'success');
+      showSuccess('Login successful! Welcome back!');
       return response.data;
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Login failed';
-      showAlert(errorMessage, 'error');
+      showError(errorMessage);
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [setAuth, showAlert, validateToken]);
+  }, [setAuth, validateToken, showSuccess, showError]);
 
-  // Admin login - USED BY ADMIN LOGIN PAGE ONLY
+  // Admin login
   const loginAdmin = useCallback(async (credentials) => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/auth/admin/login', credentials);
+      const response = await apiLoginAdmin(credentials);
       const { user: userData, token: authToken } = response.data.data;
       
       if (!validateToken(authToken)) {
@@ -286,162 +346,105 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
       }
       
       setAuth(userData, authToken, 'admin');
-      showAlert(`Admin login successful! Welcome ${userData.role === 'super-admin' ? 'Super Admin' : 'Admin'}!`, 'success');
+      showSuccess(`Admin login successful! Welcome ${userData.role === 'super-admin' ? 'Super Admin' : 'Admin'}!`);
       return response.data;
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Admin login failed';
-      showAlert(errorMessage, 'error');
+      showError(errorMessage);
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [setAuth, showAlert, validateToken]);
+  }, [setAuth, validateToken, showSuccess, showError]);
 
-  // Customer registration - NAVBAR SIGNUP
+  // Customer registration
   const register = useCallback(async (userData) => {
     setLoading(true);
     try {
-      // Force customer type for navbar registration
       const customerData = { ...userData, userType: 'customer' };
-      const response = await axios.post('/api/auth/customer/register', customerData);
-      showAlert('Registration successful! Please check your email for verification.', 'success');
+      const response = await API.post('/auth/customer/register', customerData);
+      showSuccess('Registration successful! Please check your email for verification.');
       return response.data;
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Registration failed';
-      showAlert(errorMessage, 'error');
+      showError(errorMessage);
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [showAlert]);
-
-  // Google login
-  const loginWithGoogle = useCallback(async (googleUser) => {
-    setLoading(true);
-    try {
-      const response = await axios.post('/api/auth/google', googleUser);
-      const { user: userData, token: authToken } = response.data.data;
-      
-      if (!validateToken(authToken)) {
-        throw new Error('Invalid token received from server');
-      }
-      
-      setAuth(userData, authToken, 'customer');
-      showAlert('Google login successful! Welcome!', 'success');
-      return response.data;
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Google login failed';
-      showAlert(errorMessage, 'error');
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [setAuth, showAlert, validateToken]);
+  }, [showSuccess, showError]);
 
   // Logout
   const logout = useCallback(async () => {
     try {
-      await axios.post('/api/auth/logout');
+      await API.post('/auth/logout');
     } catch (error) {
       console.error('Logout API call failed:', error);
     } finally {
       clearAuth();
       setCartState([]);
-      showAlert('Logged out successfully', 'info');
+      showInfo('Logged out successfully');
     }
-  }, [clearAuth, showAlert]);
+  }, [clearAuth, showInfo]);
 
-  // Verify email
-  const verifyUserEmail = useCallback(async (email, code) => {
-    return verifyEmail({ email, code });
-  }, []);
+  // ==================== ADMIN DATA FETCHING METHODS ====================
 
-  const verifyEmail = useCallback(async (payload) => {
-    setLoading(true);
+  const fetchDashboardStats = useCallback(async (timeframe = '30d') => {
     try {
-      const response = await axios.post('/api/auth/verify-email', payload);
-      const { user: userData, token: authToken } = response.data.data;
-      
-      if (!validateToken(authToken)) {
-        throw new Error('Invalid token received from server');
-      }
-      
-      setAuth(userData, authToken, userData.userType);
-      showAlert('Email verified successfully!', 'success');
+      const response = await getDashboardStats({ timeframe });
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Email verification failed';
-      showAlert(errorMessage, 'error');
+      console.error('Dashboard stats error:', error);
+      showError('Failed to fetch dashboard statistics');
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [setAuth, showAlert, validateToken]);
+  }, [showError]);
 
-  // Resend verification
-  const resendVerificationCode = useCallback(async (email) => {
-    return resendVerification(email);
-  }, []);
-
-  const resendVerification = useCallback(async (email) => {
-    setLoading(true);
+  const fetchSalesAnalytics = useCallback(async (period = '30d') => {
     try {
-      const response = await axios.post('/api/auth/resend-verification', { email });
-      showAlert('Verification code sent to your email', 'info');
+      const response = await getSalesAnalytics({ period });
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to send verification code';
-      showAlert(errorMessage, 'error');
+      console.error('Sales analytics error:', error);
+      showError('Failed to fetch sales analytics');
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [showAlert]);
+  }, [showError]);
 
-  // Update profile
-  const updateProfile = useCallback(async (profileData) => {
-    setLoading(true);
+  const fetchAdminUsers = useCallback(async (params = {}) => {
     try {
-      const response = await axios.put('/api/auth/profile', profileData);
-      if (response.data.success) {
-        setUser(prevUser => ({ ...prevUser, ...response.data.data }));
-        showAlert('Profile updated successfully', 'success');
-      }
+      const response = await getAdminUsers(params);
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Profile update failed';
-      showAlert(errorMessage, 'error');
+      console.error('Admin users fetch error:', error);
+      showError('Failed to fetch users');
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [showAlert]);
+  }, [showError]);
 
-  // ==================== AUTH INITIALIZATION & INTERCEPTORS ====================
+  const fetchAdminOrders = useCallback(async (params = {}) => {
+    try {
+      const response = await getAdminOrders(params);
+      return response.data;
+    } catch (error) {
+      console.error('Admin orders fetch error:', error);
+      showError('Failed to fetch orders');
+      throw error;
+    }
+  }, [showError]);
 
-  // Add axios response interceptor for token errors
-  useEffect(() => {
-    const responseInterceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          console.log('🛡️ Auto-logout due to 401 error - token invalid');
-          clearAuth();
-          showAlert('Your session has expired. Please log in again.', 'error');
-          
-          // Redirect to login if on admin page
-          if (window.location.pathname.startsWith('/admin')) {
-            window.location.href = '/admin/login';
-          }
-        }
-        return Promise.reject(error);
-      }
-    );
+  const fetchAdminProducts = useCallback(async (params = {}) => {
+    try {
+      const response = await getAdminProducts(params);
+      return response.data;
+    } catch (error) {
+      console.error('Admin products fetch error:', error);
+      showError('Failed to fetch products');
+      throw error;
+    }
+  }, [showError]);
 
-    return () => {
-      axios.interceptors.response.eject(responseInterceptor);
-    };
-  }, [clearAuth, showAlert]);
+  // ==================== AUTH INITIALIZATION ====================
 
   // Initialize auth from localStorage
   useEffect(() => {
@@ -455,19 +458,16 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
             console.log('🔄 Found valid token in storage, verifying with server...');
             
             setToken(storedToken);
-            axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
             
-            // Verify token is still valid by fetching user profile
             try {
-              const response = await axios.get('/api/auth/me');
+              const response = await getCurrentUser();
               if (response.data.success) {
                 const userData = response.data.data;
                 setUser(userData);
                 const actualUserType = userData.userType || storedUserType;
                 setUserType(actualUserType);
-                console.log('✅ Auth restored from API:', userData.email, 'Type:', actualUserType, 'Role:', userData.role);
+                console.log('✅ Auth restored from API:', userData.email, 'Type:', actualUserType);
                 
-                // Update localStorage with fresh data from API
                 localStorage.setItem('auth', JSON.stringify({
                   user: userData,
                   token: storedToken,
@@ -475,27 +475,26 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
                 }));
               }
             } catch (error) {
-              console.error('❌ Token validation failed - clearing corrupted token:', error.message);
-              // AUTO-CLEAR corrupted/invalid tokens
+              console.error('❌ Token validation failed - clearing:', error.message);
               clearAuth();
-              if (error.response?.status === 401 || error.message?.includes('token')) {
-                showAlert('Your session has expired. Please log in again.', 'info');
+              if (error.response?.status === 401) {
+                showInfo('Your session has expired. Please log in again.');
               }
             }
           } else {
-            console.log('❌ Invalid or expired token found in storage - clearing');
+            console.log('❌ Invalid token found - clearing');
             clearAuth();
           }
         }
 
-        // Initialize cart from localStorage
+        // Initialize cart
         const storedCart = localStorage.getItem('cart');
         if (storedCart) {
           try {
             const parsedCart = JSON.parse(storedCart);
             if (Array.isArray(parsedCart)) {
               setCartState(parsedCart);
-              console.log('🛒 Cart restored from localStorage:', parsedCart.length, 'items');
+              console.log('🛒 Cart restored:', parsedCart.length, 'items');
             }
           } catch (error) {
             console.error('Failed to parse cart:', error);
@@ -509,25 +508,19 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
     };
 
     initializeAuth();
-  }, [clearAuth, showAlert, validateToken]);
+  }, [clearAuth, validateToken]);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cart));
   }, [cart]);
 
-  // ==================== ROLE & PERMISSION CHECKS ====================
+  // ==================== ROLE CHECKS ====================
 
   const isAdmin = userType === 'admin';
   const isSuperAdmin = user?.role === 'super-admin';
   const isCustomer = userType === 'customer';
   const isAuthenticated = !!user && !!token;
-
-  // Admin permission checks
-  const canManageUsers = isSuperAdmin || user?.permissions?.canManageUsers;
-  const canManageProducts = isAdmin || user?.permissions?.canManageProducts;
-  const canManageOrders = isAdmin || user?.permissions?.canManageOrders;
-  const canManageContent = isAdmin || user?.permissions?.canManageContent;
 
   // ==================== CONTEXT VALUE ====================
 
@@ -538,30 +531,39 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
     userType,
     loading,
     isAuthenticated,
-    
-    // Role checks
     isAdmin,
     isSuperAdmin,
     isCustomer,
     
-    // Admin permissions
-    canManageUsers,
-    canManageProducts,
-    canManageOrders,
-    canManageContent,
+    // Notification system
+    notifications,
+    addNotification,
+    removeNotification,
+    clearNotifications,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    
+    // Alert system (backward compatibility)
+    alert,
+    showAlert,
+    hideAlert,
+    showNotification, // Alias for backward compatibility
     
     // Auth methods
     login,
     loginAdmin,
-    loginWithGoogle,
     register,
     logout,
-    verifyEmail,
-    verifyUserEmail,
-    updateProfile,
-    resendVerification,
-    resendVerificationCode,
     clearAuth,
+    
+    // Admin data methods
+    fetchDashboardStats,
+    fetchSalesAnalytics,
+    fetchAdminUsers,
+    fetchAdminOrders,
+    fetchAdminProducts,
     
     // Cart state
     cart,
@@ -583,21 +585,16 @@ const addToCart = useCallback((product, quantity = 1, selectedSize = null) => {
     toggleCart,
     setIsCartOpen,
     setMobileMenuOpen: setMobileMenuOpenState,
-    
-    // Alert/Notification methods
-    alert,
-    showAlert,
-    showNotification,
-    hideAlert
   }), [
     user, token, userType, loading, isAuthenticated, isAdmin, isSuperAdmin, isCustomer,
-    canManageUsers, canManageProducts, canManageOrders, canManageContent,
-    cart, isCartOpen, cartCount, mobileMenuOpen, alert,
-    login, loginAdmin, loginWithGoogle, register, logout, verifyEmail, 
-    verifyUserEmail, updateProfile, resendVerification, resendVerificationCode, clearAuth,
+    notifications, alert,
+    cart, isCartOpen, cartCount, mobileMenuOpen,
+    addNotification, removeNotification, clearNotifications, showSuccess, showError, showWarning, showInfo,
+    showAlert, hideAlert,
+    login, loginAdmin, register, logout, clearAuth,
+    fetchDashboardStats, fetchSalesAnalytics, fetchAdminUsers, fetchAdminOrders, fetchAdminProducts,
     addToCart, removeFromCart, updateCartQuantity, clearCart, getCartTotal, getCartItemCount,
-    openCart, closeCart, toggleCart, setMobileMenuOpenState,
-    showAlert, showNotification, hideAlert
+    openCart, closeCart, toggleCart, setMobileMenuOpenState
   ]);
 
   return (

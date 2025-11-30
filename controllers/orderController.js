@@ -251,10 +251,27 @@ const getUserOrders = asyncHandler(async (req, res) => {
 // @desc    Get order by ID
 // @route   GET /api/orders/:id
 // @access  Private
+// @desc    Get order by ID
+// @route   GET /api/orders/:id
+// @access  Private
 const getOrderById = asyncHandler(async (req, res) => {
-  try {
+     try {
+    console.log('🔍 Fetching order:', req.params.id);
+    console.log('👤 Current user:', { 
+      id: req.user._id, 
+      role: req.user.role, // or userType
+      email: req.user.email 
+    });
+    // Validate order ID format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid order ID format'
+      });
+    }
+
     const order = await Order.findById(req.params.id)
-      .populate('user', 'firstName lastName email phone')
+      .populate('user', 'firstName lastName email phone role')
       .populate('items.product', 'name images price category');
 
     if (!order) {
@@ -264,8 +281,12 @@ const getOrderById = asyncHandler(async (req, res) => {
       });
     }
 
-    // Check if order belongs to user or user is admin
-    if (order.user._id.toString() !== req.user._id.toString() && req.user.userType !== 'admin') {
+    // FIXED: Check if order belongs to user or user is admin
+    // Use req.user.role instead of req.user.userType
+    const isOwner = order.user._id.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin'; // Changed from userType to role
+
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to view this order'
@@ -277,10 +298,20 @@ const getOrderById = asyncHandler(async (req, res) => {
       data: order
     });
   } catch (error) {
-    console.error('Get order by ID error:', error);
+    console.error('❌ Get order by ID error:', error);
+    
+    // More specific error handling
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid order ID'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch order'
+      message: 'Failed to fetch order',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
