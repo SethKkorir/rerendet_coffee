@@ -18,7 +18,7 @@ const About = () => {
               fully before harvest. Each batch is hand-picked, carefully processed, and roasted to perfection.
             </p>
             
-            <div className="about-stats">
+            {/* <div className="about-stats">
               <div className="stat">
                 <span className="stat-number">25+</span>
                 <span className="stat-label">Years of Experience</span>
@@ -31,12 +31,12 @@ const About = () => {
                 <span className="stat-number">3</span>
                 <span className="stat-label">Award-Winning Blends</span>
               </div>
-            </div>
+            </div> */}
           </div>
           
           <div className="about-image" data-aos="fade-left">
             <img 
-              src="https://via.placeholder.com/600x400?text=Coffee+Farm" 
+              src="/images/coffee/Rerendet_CoffeeFarm.png" 
               alt="Rerendet Coffee Farm" 
             />
           </div>

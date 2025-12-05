@@ -1,24 +1,16 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  FaUser, 
   FaShoppingBag, 
   FaBars, 
   FaTimes,
-  FaUserCircle,
-  FaSignOutAlt,
+  FaUser,
+  FaCoffee,
   FaSun,
   FaMoon,
-  FaBoxOpen,
-  FaGoogle,
-  FaEye,
-  FaEyeSlash,
   FaArrowLeft,
-  FaCoffee,
-  FaStar,
-  FaHeart,
-  FaMapMarkerAlt,
-  FaCreditCard
+  FaEye,
+  FaEyeSlash
 } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppContext } from '../../context/AppContext';
@@ -45,10 +37,10 @@ function Navbar() {
   const navigate = useNavigate();
   
   // State management
-  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showAuthForm, setShowAuthForm] = useState(false);
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
+  const [authMode, setAuthMode] = useState('signin');
   const [signupStep, setSignupStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
@@ -72,6 +64,15 @@ function Navbar() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // Scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Theme initialization
   useEffect(() => {
     const savedMode = localStorage.getItem('darkMode') === 'true';
@@ -82,17 +83,11 @@ function Navbar() {
     document.documentElement.setAttribute('data-theme', initialMode ? 'dark' : 'light');
   }, []);
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isAccountDropdownOpen && !event.target.closest('.account-section')) {
-        setIsAccountDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isAccountDropdownOpen]);
+  // Mobile menu toggle
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+    document.body.classList.toggle('menu-open', !mobileMenuOpen);
+  };
 
   // Theme toggle
   const toggleTheme = () => {
@@ -102,23 +97,11 @@ function Navbar() {
     document.documentElement.setAttribute('data-theme', newMode ? 'dark' : 'light');
   };
 
-  // Mobile menu toggle
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-    document.body.classList.toggle('menu-open', !mobileMenuOpen);
-  };
-
-  // Account dropdown toggle
-  const toggleAccountDropdown = () => {
-    setIsAccountDropdownOpen(!isAccountDropdownOpen);
-  };
-
   // Auth form handlers
   const handleAuthClick = (mode = 'signin') => {
     setAuthMode(mode);
     setShowAuthForm(true);
-    setIsAccountDropdownOpen(false);
-    document.body.classList.add('form-open');
+    setSignupStep(1);
     resetForm();
   };
 
@@ -126,7 +109,6 @@ function Navbar() {
     setShowAuthForm(false);
     setSignupStep(1);
     setAuthMode('signin');
-    document.body.classList.remove('form-open');
     resetForm();
   };
 
@@ -149,7 +131,7 @@ function Navbar() {
     setShowPassword(false);
   };
 
-  // Validation functions
+  // Validation functions (keep your existing logic)
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validatePhone = (phone) => /^\+254[0-9]{9}$/.test(phone);
   const validatePassword = (password) => password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
@@ -221,7 +203,7 @@ function Navbar() {
     }
   };
 
-  // Sign Up Handlers - CUSTOMER ONLY
+  // Sign Up Handlers - CUSTOMER ONLY (keep all steps)
   const handleSignUpStep1 = (e) => {
     e.preventDefault();
     const { email, phone } = formData;
@@ -287,7 +269,7 @@ function Navbar() {
         password,
         gender,
         dateOfBirth: dob || null,
-        userType: 'customer' // FORCE CUSTOMER TYPE
+        userType: 'customer'
       };
       
       await register(payload);
@@ -338,7 +320,7 @@ function Navbar() {
       closeAuthForm();
       
       // Always redirect to customer account
-      setIsAccountDropdownOpen(true);
+      navigate('/account');
     } catch (error) {
       setErrors({ verification: error.response?.data?.message || 'Verification failed. Please try again.' });
     } finally {
@@ -372,9 +354,12 @@ function Navbar() {
   };
 
   // Navigation handlers
-  const handleNavigation = (path) => {
+  const scrollToSection = (sectionId) => {
+    const section = document.querySelector(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
     setMobileMenuOpen(false);
-    navigate(path);
   };
 
   // Calculate age for display
@@ -382,6 +367,13 @@ function Navbar() {
     if (!dob) return 0;
     return Math.floor((new Date() - new Date(dob)) / (365.25 * 24 * 60 * 60 * 1000));
   };
+
+  // Navigation links
+  const navLinks = [
+    { name: 'Shop', href: '#coffee-shop' },
+    { name: 'About', href: '#about' },
+    { name: 'Contact', href: '#contact' },
+  ];
 
   // Animation variants
   const formVariants = {
@@ -398,7 +390,7 @@ function Navbar() {
     exit: { opacity: 0, scale: 0.95 }
   };
 
-  // Render Auth Forms - CUSTOMER ONLY
+  // Render Auth Forms - CUSTOMER ONLY (all your steps with new CSS)
   const renderAuthForm = () => {
     if (authMode === 'signin') {
       return (
@@ -417,18 +409,11 @@ function Navbar() {
               <div className="error-message general">
                 {errors.general}
                 {errors.showResendVerification && (
-                  <div style={{ marginTop: '10px' }}>
+                  <div className="resend-verification">
                     <button 
                       type="button" 
                       onClick={handleResendVerification}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--accent-color)',
-                        textDecoration: 'underline',
-                        cursor: 'pointer',
-                        fontSize: '0.85rem'
-                      }}
+                      className="resend-btn"
                     >
                       Click here to resend verification code
                     </button>
@@ -500,7 +485,7 @@ function Navbar() {
       );
     }
 
-    // Sign Up Steps - CUSTOMER ONLY
+    // Sign Up Steps - CUSTOMER ONLY (all your steps)
     switch(signupStep) {
       case 1:
         return (
@@ -718,7 +703,7 @@ function Navbar() {
                   max={new Date().toISOString().split('T')[0]}
                 />
                 {formData.dob && (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--secondary-text)', marginTop: '0.25rem' }}>
+                  <div className="age-display">
                     Age: {calculateAge(formData.dob)} years
                   </div>
                 )}
@@ -806,167 +791,99 @@ function Navbar() {
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <>
-        <nav className={`navbar ${showAuthForm ? 'hidden' : ''}`}>
-          <div className="nav-container">
+        {/* Main Header */}
+        <header className={`header ${isScrolled ? 'header--scrolled' : ''}`}>
+          <div className="header__container">
             {/* Logo */}
-            <Link to="/" className="nav-logo" onClick={() => setMobileMenuOpen(false)}>
-              <FaCoffee className="logo-icon" />
-              <span>Rerendet Coffee</span>
-            </Link>
-
-            {/* Navigation Menu */}
-            <div className={`nav-menu ${mobileMenuOpen ? 'active' : ''}`}>
-              <a href="#features" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
-                Our Coffee
-              </a>
-              <a href="#coffee-shop" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
-                Shop
-              </a>
-              <Link to="/blog" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
-                Blog
-              </Link>
-              <a href="#about" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
-                About
-              </a>
-              <a href="#contact" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
-                Contact
-              </a>
+            <div className="header__logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <FaCoffee className="header__logo-icon" />
+              <span className="header__logo-text">Rerendet</span>
             </div>
 
-            {/* Navigation Actions */}
-            <div className="nav-actions">
+            {/* Desktop Navigation */}
+            <nav className="header__nav">
+              {navLinks.map((link) => (
+                <button
+                  key={link.name}
+                  onClick={() => scrollToSection(link.href)}
+                  className="header__nav-link"
+                >
+                  {link.name}
+                </button>
+              ))}
+            </nav>
+
+            {/* Actions */}
+            <div className="header__actions">
               {/* Theme Toggle */}
-              <button 
-                className="theme-toggle"
-                onClick={toggleTheme}
-                aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
-              >
+              <button className="theme-toggle" onClick={toggleTheme}>
                 {darkMode ? <FaSun /> : <FaMoon />}
               </button>
 
-              {/* Account Section */}
-              <div className="account-section">
-                <button 
-                  className="account-trigger"
-                  onClick={toggleAccountDropdown}
-                  aria-expanded={isAccountDropdownOpen}
-                >
-                  <span className="account-icon">
-                    {user ? <FaUserCircle /> : <FaUser />}
-                  </span>
-                  <span className="account-text">
-                    {user ? `Hi, ${user.firstName}` : 'Account'}
-                  </span>
-                </button>
-                
-                <AnimatePresence>
-                  {isAccountDropdownOpen && (
-                    <motion.div 
-                      className="account-dropdown"
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                    >
-                      {user ? (
-                        <>
-                          <div className="account-header">
-                            <div className="account-avatar">
-                              {user.profilePicture ? (
-                                <img src={user.profilePicture} alt={user.firstName} />
-                              ) : (
-                                <FaUserCircle />
-                              )}
-                            </div>
-                            <div className="account-info">
-                              <h4>Welcome back!</h4>
-                              <p>{user.firstName} {user.lastName}</p>
-                              <span className="user-email">{user.email}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="account-links">
-                            <Link 
-                              to="/account" 
-                              className="account-link"
-                              onClick={() => setIsAccountDropdownOpen(false)}
-                            >
-                              <FaUserCircle className="link-icon" />
-                              <span>My Account</span>
-                            </Link>
-                            <Link 
-                              to="/orders" 
-                              className="account-link"
-                              onClick={() => setIsAccountDropdownOpen(false)}
-                            >
-                              <FaBoxOpen className="link-icon" />
-                              <span>My Orders</span>
-                            </Link>
-                            <Link 
-                              to="/favorites" 
-                              className="account-link"
-                              onClick={() => setIsAccountDropdownOpen(false)}
-                            >
-                              <FaHeart className="link-icon" />
-                              <span>Favorites</span>
-                            </Link>
-                            <button className="account-link logout-btn" onClick={logout}>
-                              <FaSignOutAlt className="link-icon" />
-                              <span>Logout</span>
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="account-auth">
-                          <div className="auth-options">
-                            <button 
-                              className="auth-btn primary"
-                              onClick={() => handleAuthClick('signin')}
-                            >
-                              Sign In
-                            </button>
-                            <button 
-                              className="auth-btn outline"
-                              onClick={() => handleAuthClick('signup')}
-                            >
-                              Create Account
-                            </button>
-                          </div>
-                          <div className="auth-features">
-                            <div className="feature">
-                              <FaStar className="feature-icon" />
-                              <span>Earn loyalty points</span>
-                            </div>
-                            <div className="feature">
-                              <FaBoxOpen className="feature-icon" />
-                              <span>Track orders</span>
-                            </div>
-                            <div className="feature">
-                              <FaHeart className="feature-icon" />
-                              <span>Save favorites</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
+              {/* Account */}
+              <button 
+                className="header__account"
+                onClick={() => user ? navigate('/account') : handleAuthClick('signin')}
+              >
+                <FaUser />
+              </button>
+
+              {/* Cart */}
+              <div className="header__cart-wrapper">
+                <button className="header__cart" onClick={() => setIsCartOpen(true)}>
+                  <FaShoppingBag />
+                  {cartCount > 0 && (
+                    <span className="header__cart-badge">
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </span>
                   )}
-                </AnimatePresence>
+                </button>
               </div>
 
-              {/* Cart Icon */}
-              <div className="cart-action" onClick={() => setIsCartOpen(true)}>
-                <div className="cart-count">{cartCount}</div>
-                <FaShoppingBag />
-              </div>
-            </div>
-
-            {/* Mobile Menu Toggle */}
-            <div className="mobile-toggle" onClick={toggleMobileMenu}>
-              {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+              {/* Mobile Menu Toggle */}
+              <button 
+                className="header__mobile-trigger" 
+                onClick={toggleMobileMenu}
+              >
+                {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+              </button>
             </div>
           </div>
-        </nav>
 
-        {/* Auth Form Overlay */}
+          {/* Mobile Menu */}
+          <div className={`header__mobile-menu ${mobileMenuOpen ? 'active' : ''}`}>
+            <nav className="header__mobile-nav">
+              {navLinks.map((link) => (
+                <button
+                  key={link.name}
+                  onClick={() => scrollToSection(link.href)}
+                  className="header__mobile-nav-link"
+                >
+                  {link.name}
+                </button>
+              ))}
+              {user ? (
+                <>
+                  <button className="header__mobile-nav-link" onClick={() => navigate('/account')}>
+                    My Account
+                  </button>
+                  <button className="header__mobile-nav-link" onClick={() => { logout(); setMobileMenuOpen(false); }}>
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <button 
+                  className="header__mobile-nav-link"
+                  onClick={() => { handleAuthClick('signin'); setMobileMenuOpen(false); }}
+                >
+                  Sign In
+                </button>
+              )}
+            </nav>
+          </div>
+        </header>
+
+        {/* Auth Modal Overlay */}
         <AnimatePresence>
           {showAuthForm && (
             <motion.div 
