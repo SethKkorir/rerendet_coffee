@@ -1,0 +1,229 @@
+/* Checkout.css - Modern Design Matching CartSidebar */
+
+/* ... existing styles ... */
+
+/* ================================
+   PAYMENT DETAILS SECTIONS (NEW)
+   ================================ */
+
+/* Payment Details Container */
+.payment-details-section {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* M-Pesa Section */
+.mpesa-section .payment-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #ecfdf5;
+    border-left: 3px solid #10b981;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: #065f46;
+}
+
+.mpesa-section .note-icon {
+    color: #10b981;
+    font-size: 1rem;
+}
+
+/* Card Section */
+.card-section .card-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.card-section .payment-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: #f0f9ff;
+    border-left: 3px solid #3b82f6;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: #1e40af;
+}
+
+.card-section .note-icon {
+    color: #3b82f6;
+    font-size: 1rem;
+}
+
+/* COD Section */
+.cod-section {
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+
+.cod-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: white;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.cod-notice .info-icon {
+    font-size: 1.5rem;
+    color: #f59e0b;
+    flex-shrink: 0;
+}
+
+.notice-content h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #92400e;
+}
+
+.notice-content p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #78350f;
+}
+
+.cod-limit-warning {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+.cod-limit-warning svg {
+    color: #ef4444;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.cod-limit-warning p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #991b1b;
+    font-weight: 500;
+}
+
+.cod-confirmation {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.cod-confirmation:hover {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+
+.cod-confirmation input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.cod-confirmation span {
+    font-size: 0.875rem;
+    color: #374151;
+    font-weight: 500;
+}
+
+.cod-confirmation input[type="checkbox"]:checked+span {
+    color: #10b981;
+}
+
+/* Payment Note General Styles */
+.payment-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.payment-note .note-icon {
+    flex-shrink: 0;
+}
+
+/* Radio Dots for Payment Options */
+.payment-radio {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.radio-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #d1d5db;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.radio-dot.active {
+    border-color: #10b981;
+    background: white;
+}
+
+.radio-dot.active::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Responsive - Card Row */
+@media (max-width: 768px) {
+    .card-section .card-row {
+        grid-template-columns: 1fr;
+    }
+
+    .payment-details-section {
+        padding: 1rem;
+    }
+
+    .cod-notice {
+        flex-direction: column;
+        text-align: center;
+    }
+}

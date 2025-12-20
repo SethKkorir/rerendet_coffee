@@ -35,11 +35,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     ]),
     Order.countDocuments({ createdAt: { $gte: startOfToday } }),
     Order.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           paymentStatus: 'paid',
-          createdAt: { $gte: startOfToday } 
-        } 
+          createdAt: { $gte: startOfToday }
+        }
       },
       { $group: { _id: null, total: { $sum: '$total' } } }
     ]),
@@ -47,7 +47,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       .populate('user', 'firstName lastName email')
       .sort({ createdAt: -1 })
       .limit(5),
-    Product.find({ 
+    Product.find({
       'inventory.stock': { $lte: 10 },
       isActive: true
     }).limit(5),
@@ -140,10 +140,10 @@ const getOrderDetail = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status, trackingNumber, notifyCustomer = true } = req.body;
-  
+
   const order = await Order.findByIdAndUpdate(
     req.params.id,
-    { 
+    {
       status,
       ...(trackingNumber && { trackingNumber }),
       statusUpdatedAt: new Date()
@@ -220,7 +220,7 @@ const createProduct = asyncHandler(async (req, res) => {
   try {
     // Check if data is coming as FormData with JSON (from frontend)
     let requestBody = { ...req.body };
-    
+
     if (req.body.data) {
       try {
         const jsonData = JSON.parse(req.body.data);
@@ -371,12 +371,12 @@ const createProduct = asyncHandler(async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    
+
     // Log detailed error for debugging
     console.error('❌ Product creation error:', error);
     console.error('❌ Request body:', req.body);
     console.error('❌ Request files:', req.files);
-    
+
     throw error;
   }
 });
@@ -394,7 +394,7 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   // Check if data is coming as FormData with JSON
   let requestBody = { ...req.body };
-  
+
   if (req.body.data) {
     try {
       const jsonData = JSON.parse(req.body.data);
@@ -424,18 +424,18 @@ const updateProduct = asyncHandler(async (req, res) => {
   if (name !== undefined) product.name = name.toString().trim();
   if (description !== undefined) product.description = description.toString().trim();
   if (category !== undefined) product.category = category.toString();
-  
+
   if (roastLevel !== undefined && category === 'coffee-beans') {
     product.roastLevel = roastLevel.toString();
   }
-  
+
   if (origin !== undefined) product.origin = origin.toString().trim();
   if (badge !== undefined) product.badge = badge.toString().trim();
-  
+
   if (isFeatured !== undefined) {
     product.isFeatured = isFeatured === 'true' || isFeatured === true;
   }
-  
+
   if (isActive !== undefined) {
     product.isActive = isActive === 'true' || isActive === true;
   }
@@ -594,6 +594,55 @@ const getUsers = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Update user role
+// @route   PUT /api/admin/users/:id/role
+// @access  Private/Admin
+const updateUserRole = asyncHandler(async (req, res) => {
+  const { role } = req.body;
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // Prevent changing role of super-admin unless it's another super-admin or itself?
+  // For now, simple role update
+  user.role = role;
+  await user.save();
+
+  res.json({
+    success: true,
+    message: `User role updated to ${role} successfully`,
+    data: user
+  });
+});
+
+// @desc    Delete user
+// @route   DELETE /api/admin/users/:id
+// @access  Private/Admin
+const deleteUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // Prevent deleting self
+  if (user._id.toString() === req.user._id.toString()) {
+    res.status(400);
+    throw new Error('You cannot delete your own admin account');
+  }
+
+  await user.deleteOne();
+
+  res.json({
+    success: true,
+    message: 'User deleted successfully'
+  });
+});
+
 // @desc    Get all contacts
 // @route   GET /api/admin/contacts
 // @access  Private/Admin
@@ -631,10 +680,10 @@ const getContacts = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const updateContactStatus = asyncHandler(async (req, res) => {
   const { status, adminResponse } = req.body;
-  
+
   const contact = await Contact.findByIdAndUpdate(
     req.params.id,
-    { 
+    {
       status,
       ...(adminResponse && { adminResponse }),
       respondedAt: new Date()
@@ -678,10 +727,10 @@ const updateSettings = asyncHandler(async (req, res) => {
   const updatedSettings = await Settings.findOneAndUpdate(
     {},
     { $set: req.body },
-    { 
-      new: true, 
-      upsert: true, 
-      runValidators: true 
+    {
+      new: true,
+      upsert: true,
+      runValidators: true
     }
   );
 
@@ -697,7 +746,7 @@ const updateSettings = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const getSalesAnalytics = asyncHandler(async (req, res) => {
   const { period = '30d' } = req.query;
-  
+
   let startDate;
   const endDate = new Date();
 
@@ -723,27 +772,89 @@ const getSalesAnalytics = asyncHandler(async (req, res) => {
       startDate.setDate(startDate.getDate() - 30);
   }
 
-  const sales = await Order.aggregate([
-    {
-      $match: {
-        createdAt: { $gte: startDate },
-        paymentStatus: 'paid'
+  // Aggregate metrics
+  const [salesStats, categoryStats, totals] = await Promise.all([
+    // Daily sales data for line chart
+    Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+          paymentStatus: 'paid'
+        }
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          total: { $sum: '$total' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]),
+
+    // Category distribution for pie chart
+    Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+          paymentStatus: 'paid'
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'items.product',
+          foreignField: '_id',
+          as: 'productInfo'
+        }
+      },
+      { $unwind: '$productInfo' },
+      {
+        $group: {
+          _id: '$productInfo.category',
+          value: { $sum: '$items.quantity' }
+        }
+      },
+      { $project: { name: '$_id', value: 1, _id: 0 } }
+    ]),
+
+    // Overview totals
+    Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+          paymentStatus: 'paid'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$total' },
+          totalOrders: { $sum: 1 },
+          productsSold: { $sum: { $size: '$items' } }, // Simple count of items as fallback
+          uniqueCustomers: { $addToSet: '$user' }
+        }
       }
-    },
-    {
-      $group: {
-        _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-        total: { $sum: '$total' },
-        count: { $sum: 1 }
-      }
-    },
-    { $sort: { _id: 1 } }
+    ])
   ]);
+
+  const overview = totals[0] || { totalRevenue: 0, totalOrders: 0, productsSold: 0, uniqueCustomers: [] };
+  const activeCustomers = overview.uniqueCustomers.length;
+  const averageOrderValue = overview.totalOrders > 0 ? overview.totalRevenue / overview.totalOrders : 0;
 
   res.json({
     success: true,
     data: {
-      sales,
+      salesData: salesStats,
+      categoryDistribution: categoryStats,
+      totalRevenue: overview.totalRevenue || 0,
+      totalOrders: overview.totalOrders || 0,
+      productsSold: overview.productsSold || 0,
+      activeCustomers: activeCustomers,
+      averageOrderValue: averageOrderValue,
+      conversionRate: 3.5, // Simulated for now
+      retentionRate: 15.2, // Simulated for now
       period
     }
   });
@@ -763,5 +874,7 @@ export {
   updateContactStatus,
   getSettings,
   updateSettings,
-  getSalesAnalytics
+  getSalesAnalytics,
+  updateUserRole,
+  deleteUser
 };

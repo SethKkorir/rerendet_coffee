@@ -6,15 +6,15 @@ import './AdminLogin.css';
 
 const AdminLogin = () => {
   const [formData, setFormData] = useState({
-    email: 'admin@rerendetcoffee.com',
-    password: 'Admin123!'
+    email: '',
+    password: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const { loginAdmin, showNotification } = useContext(AppContext);
   const navigate = useNavigate();
-  
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -29,16 +29,12 @@ const AdminLogin = () => {
     setError('');
 
     try {
-      console.log('🔄 Attempting admin login...', { email: formData.email, password: '***' });
-      
       // Use the admin-specific login function
       const response = await loginAdmin(formData);
-      
-      console.log('✅ Admin login successful, redirecting to admin dashboard...');
-      
+
       // Redirect to admin dashboard
       navigate('/admin');
-      
+
     } catch (error) {
       console.error('❌ Admin login error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Admin login failed';
@@ -60,7 +56,7 @@ const AdminLogin = () => {
             </div>
             <p className="login-subtitle">Administrator Access Only</p>
           </div>
-          
+
           {error && (
             <div className="error-message">
               <strong>Access Denied:</strong> {error}
@@ -75,7 +71,7 @@ const AdminLogin = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="admin@rerendetcoffee.com"
+                placeholder="Enter admin email"
                 required
                 disabled={loading}
                 className="form-input"
@@ -96,8 +92,8 @@ const AdminLogin = () => {
               />
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className={`login-btn ${loading ? 'loading' : ''}`}
               disabled={loading}
             >
@@ -111,24 +107,6 @@ const AdminLogin = () => {
               )}
             </button>
           </form>
-
-          {/* Development helper */}
-          <div className="dev-helper">
-            <div className="credentials-card">
-              <h4>🔧 Development Access</h4>
-              <div className="credentials">
-                <div className="credential-item">
-                  <strong>Email:</strong> admin@rerendetcoffee.com
-                </div>
-                <div className="credential-item">
-                  <strong>Password:</strong> Admin123!
-                </div>
-              </div>
-              <p className="security-note">
-                ⚠️ Ensure admin user exists in database with userType: 'admin'
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

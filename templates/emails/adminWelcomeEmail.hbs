@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #dc2626, #7c2d12);
+            padding: 40px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 1px;
+        }
+
+        .content {
+            padding: 40px;
+            border: 1px solid #eee;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            background: #ffffff;
+        }
+
+        .greeting {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            color: #555;
+            margin-bottom: 25px;
+        }
+
+        .info-box {
+            background: white;
+            padding: 25px;
+            margin: 25px 0;
+            border-left: 4px solid #dc2626;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .info-box h3 {
+            margin-top: 0;
+            color: #dc2626;
+        }
+
+        .permissions-list {
+            padding-left: 20px;
+            color: #444;
+        }
+
+        .permissions-list li {
+            margin-bottom: 8px;
+        }
+
+        .action-box {
+            text-align: center;
+            margin-top: 35px;
+        }
+
+        .btn {
+            background: #dc2626;
+            color: #ffffff;
+            padding: 14px 28px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .footer {
+            padding: 30px;
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Rerendet Coffee Admin</h1>
+        </div>
+        <div class="content">
+            <div class="greeting">Welcome {{firstName}},</div>
+            <p class="message">Your administrator account has been successfully created and activated. You now have
+                access to the Rerendet Coffee management systems.</p>
+
+            <div class="info-box">
+                <h3>🔧 Admin Permissions</h3>
+                <ul class="permissions-list">
+                    {{#if permissions.canManageUsers}}<li>✅ Manage Users</li>{{/if}}
+                    {{#if permissions.canManageProducts}}<li>✅ Manage Products</li>{{/if}}
+                    {{#if permissions.canManageOrders}}<li>✅ Manage Orders</li>{{/if}}
+                    {{#if permissions.canManageContent}}<li>✅ Manage Content</li>{{/if}}
+                </ul>
+                <p><strong>Role:</strong> {{role}}</p>
+            </div>
+
+            <div class="action-box">
+                <a href="{{adminUrl}}" class="btn">Access Admin Panel</a>
+            </div>
+        </div>
+        <div class="footer">
+            &copy; 2025 Rerendet Coffee. All rights reserved.
+        </div>
+    </div>
+</body>
+
+</html>

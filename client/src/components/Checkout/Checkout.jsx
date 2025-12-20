@@ -1,33 +1,27 @@
-// components/Checkout/Checkout.jsx - COMPLETELY REWRITTEN WITH FIXES
+// components/Checkout/Checkout.jsx - WITH PAYMENT MODAL INTEGRATION
 import React, { useContext, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
-import { FaLock, FaCreditCard, FaMoneyBillWave, FaPhone, FaTruck, FaUser } from 'react-icons/fa';
+import { FaLock, FaCreditCard, FaMoneyBillWave, FaPhone, FaTruck, FaUser, FaInfoCircle } from 'react-icons/fa';
+import PaymentProcessingModal from '../PaymentProcessingModal/PaymentProcessingModal';
 import './Checkout.css';
+import './payment-sections.css';
+import { KENYA_LOCATIONS } from '../../utils/kenyaLocations';
 
-// Kenyan counties for shipping
-const KENYAN_COUNTIES = [
-  'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika', 'Malindi', 'Kitale',
-  'Garissa', 'Kakamega', 'Nyeri', 'Machakos', 'Meru', 'Lamu', 'Nanyuki', 'Naivasha',
-  'Narok', 'Bungoma', 'Busia', 'Embu', 'Homa Bay', 'Isiolo', 'Kajiado', 'Kericho',
-  'Kiambu', 'Kilifi', 'Kirinyaga', 'Kisii', 'Kitui', 'Kwale', 'Laikipia', 'Lamu',
-  'Machakos', 'Makueni', 'Mandera', 'Marsabit', 'Meru', 'Migori', 'Muranga',
-  'Nyamira', 'Nyandarua', 'Nyeri', 'Samburu', 'Siaya', 'Taita Taveta', 'Tana River',
-  'Tharaka Nithi', 'Trans Nzoia', 'Turkana', 'Uasin Gishu', 'Vihiga', 'Wajir', 'West Pokot'
-];
+const KENYAN_COUNTIES = Object.keys(KENYA_LOCATIONS);
 
 function Checkout() {
-  const { 
-    user, 
-    cart = [], 
-    showNotification, 
+  const {
+    user,
+    cart = [],
+    showNotification,
     clearCart,
     token,
     isAuthenticated
   } = useContext(AppContext);
-  
+
   const navigate = useNavigate();
-  
+
   const [shippingInfo, setShippingInfo] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -39,11 +33,22 @@ function Checkout() {
     country: 'Kenya',
     postalCode: ''
   });
-  
+
   const [paymentMethod, setPaymentMethod] = useState('mpesa');
   const [loading, setLoading] = useState(false);
   const [calculatingShipping, setCalculatingShipping] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Payment-specific state
+  const [mpesaPhone, setMpesaPhone] = useState(user?.phone || '+254 ');
+  const [cardDetails, setCardDetails] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    cardholderName: ''
+  });
+  const [codConfirmed, setCodConfirmed] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Calculate totals
   const subtotal = useMemo(() => {
@@ -53,17 +58,6 @@ function Checkout() {
   const [shippingCost, setShippingCost] = useState(0);
   const tax = subtotal * 0.16;
   const total = subtotal + shippingCost + tax;
-
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 Checkout Debug:', {
-      isAuthenticated,
-      token: token ? 'Present' : 'Missing',
-      cartItems: cart.length,
-      shippingInfo,
-      paymentMethod
-    });
-  }, [isAuthenticated, token, cart, shippingInfo, paymentMethod]);
 
   // Calculate shipping when county changes
   useEffect(() => {
@@ -77,10 +71,9 @@ function Checkout() {
       setShippingCost(0);
       return;
     }
-    
+
     setCalculatingShipping(true);
     try {
-      // ✅ FIXED: Correct endpoint
       const response = await fetch('/api/orders/shipping-cost', {
         method: 'POST',
         headers: {
@@ -101,7 +94,6 @@ function Checkout() {
       }
     } catch (error) {
       console.error('Shipping calculation error:', error);
-      // Default shipping cost based on county
       const defaultCost = shippingInfo.county === 'Nairobi' ? 200 : 350;
       setShippingCost(defaultCost);
     } finally {
@@ -111,20 +103,20 @@ function Checkout() {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!shippingInfo.firstName?.trim()) newErrors.firstName = 'First name is required';
     if (!shippingInfo.lastName?.trim()) newErrors.lastName = 'Last name is required';
     if (!shippingInfo.email?.trim()) newErrors.email = 'Email is required';
-    if (!shippingInfo.phone?.trim() || shippingInfo.phone === '+254') newErrors.phone = 'Valid phone number is required';
+    if (!shippingInfo.phone?.trim() || shippingInfo.phone.trim().length < 10) newErrors.phone = 'Please enter a full phone number';
     if (!shippingInfo.address?.trim()) newErrors.address = 'Address is required';
     if (!shippingInfo.county?.trim()) newErrors.county = 'County is required';
     if (!shippingInfo.city?.trim()) newErrors.city = 'City/Town is required';
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (shippingInfo.email && !emailRegex.test(shippingInfo.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -137,7 +129,7 @@ function Checkout() {
     for (const item of cart) {
       const productId = item.productId || item._id;
       const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-      
+
       if (!productId || !objectIdRegex.test(productId)) {
         throw new Error(`Invalid product: ${item.name}`);
       }
@@ -157,7 +149,7 @@ function Checkout() {
     return cart.map(item => {
       const productId = item.productId || item._id;
       const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-      
+
       if (!objectIdRegex.test(productId)) {
         throw new Error(`Invalid product ID for "${item.name}"`);
       }
@@ -185,6 +177,34 @@ function Checkout() {
       return;
     }
 
+    // COD-specific validation
+    if (paymentMethod === 'cod') {
+      if (total > 10000) {
+        showNotification('COD is only available for orders under KSh 10,000', 'error');
+        return;
+      }
+      if (!codConfirmed) {
+        showNotification('Please confirm you have cash available for COD', 'error');
+        return;
+      }
+    }
+
+    // M-Pesa validation
+    if (paymentMethod === 'mpesa') {
+      if (!mpesaPhone || mpesaPhone === '+254 ') {
+        showNotification('Please enter your M-Pesa phone number', 'error');
+        return;
+      }
+    }
+
+    // Card validation
+    if (paymentMethod === 'card') {
+      if (!cardDetails.cardNumber || !cardDetails.expiryDate || !cardDetails.cvv || !cardDetails.cardholderName) {
+        showNotification('Please fill in all card details', 'error');
+        return;
+      }
+    }
+
     try {
       validateCartItems();
     } catch (error) {
@@ -192,19 +212,32 @@ function Checkout() {
       return;
     }
 
+    // Show payment modal for M-Pesa and Card
+    if (paymentMethod === 'mpesa' || paymentMethod === 'card') {
+      setShowPaymentModal(true);
+    } else {
+      // Process COD directly
+      await processOrder();
+    }
+  };
+
+  // Process order after payment success or for COD
+  const processOrder = async (paymentData = null) => {
     setLoading(true);
-    
+
     try {
       const preparedCartItems = prepareCartItems();
-      
+
       const orderData = {
         shippingAddress: shippingInfo,
         paymentMethod: paymentMethod,
         items: preparedCartItems,
         subtotal: subtotal,
         shippingCost: shippingCost,
-        totalAmount: total, // ✅ FIXED: Changed to totalAmount
-        notes: '' // ✅ FIXED: Added notes field
+        tax: tax,
+        totalAmount: total,
+        notes: '',
+        paymentData: paymentData
       };
 
       console.log('📦 Sending order data:', orderData);
@@ -218,36 +251,33 @@ function Checkout() {
         body: JSON.stringify(orderData)
       });
 
-      console.log('📡 Response status:', response.status);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Server error:', errorText);
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { message: errorText };
-        }
-        throw new Error(errorData.message || `Server error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ message: 'Server error' }));
+        console.error('❌ Order failed:', errorData);
+        throw new Error(errorData.message || `Error ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('✅ Order response:', result);
+      console.log('✅ Order placed successfully:', result);
 
       if (result.success) {
         clearCart();
         showNotification('Order placed successfully!', 'success');
-        
-        // ✅ FIXED: Use result.data instead of result.order
-        navigate(`/orders/${result.data._id}`, { 
-          state: { order: result.data }
-        });
-        
+
+        // Ensure we have a valid ID before navigating
+        const orderId = result.data._id || result.data.id;
+        if (orderId) {
+          navigate(`/order-confirmation/${orderId}`, {
+            state: { order: result.data }
+          });
+        } else {
+          showNotification('Order placed, but redirection failed. Please check your account.', 'warning');
+          navigate('/account/orders');
+        }
       } else {
         throw new Error(result.message || 'Order failed');
       }
-      
+
     } catch (error) {
       console.error('❌ Order error:', error);
       showNotification(error.message || 'Failed to place order. Please try again.', 'error');
@@ -257,10 +287,70 @@ function Checkout() {
   };
 
   const handleInputChange = (field, value) => {
-    setShippingInfo(prev => ({ ...prev, [field]: value }));
+    if (field === 'county') {
+      setShippingInfo(prev => ({
+        ...prev,
+        county: value,
+        city: '' // Clear city when county changes
+      }));
+    } else {
+      setShippingInfo(prev => ({ ...prev, [field]: value }));
+    }
+
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  // Payment input handlers
+  const handleCardNumberChange = (e) => {
+    const value = e.target.value.replace(/\s/g, '');
+    if (value.length <= 16) {
+      const formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+      setCardDetails(prev => ({ ...prev, cardNumber: formatted }));
+    }
+  };
+
+  const handleExpiryChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '');
+    let formatted = value;
+    if (value.length >= 2) {
+      formatted = value.slice(0, 2) + '/' + value.slice(2, 4);
+    }
+    setCardDetails(prev => ({ ...prev, expiryDate: formatted }));
+  };
+
+  const handleCVVChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 4) {
+      setCardDetails(prev => ({ ...prev, cvv: value }));
+    }
+  };
+
+  const handleMpesaPhoneChange = (e) => {
+    let value = e.target.value;
+    if (!value.startsWith('+254')) {
+      value = '+254 ';
+    }
+    const digits = value.slice(4).replace(/\D/g, '');
+    if (digits.length <= 9) {
+      setMpesaPhone('+254 ' + digits);
+    }
+  };
+
+  // Payment modal handlers
+  const handlePaymentSuccess = async (paymentData) => {
+    setShowPaymentModal(false);
+    await processOrder(paymentData);
+  };
+
+  const handlePaymentFailure = (message) => {
+    setShowPaymentModal(false);
+    showNotification(message || 'Payment failed. Please try again.', 'error');
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPaymentModal(false);
   };
 
   useEffect(() => {
@@ -276,8 +366,8 @@ function Checkout() {
         <div className="empty-container">
           <h2>Your cart is empty</h2>
           <p>Add some delicious coffee to get started!</p>
-          <button 
-            className="btn-primary" 
+          <button
+            className="btn-primary"
             onClick={() => navigate('/')}
           >
             Start Shopping
@@ -289,6 +379,17 @@ function Checkout() {
 
   return (
     <div className="checkout-container">
+      {/* Payment Processing Modal */}
+      <PaymentProcessingModal
+        isOpen={showPaymentModal}
+        paymentMethod={paymentMethod}
+        amount={total}
+        phone={mpesaPhone}
+        onSuccess={handlePaymentSuccess}
+        onFailure={handlePaymentFailure}
+        onCancel={handlePaymentCancel}
+      />
+
       <div className="checkout-header">
         <h1>Checkout</h1>
       </div>
@@ -300,7 +401,7 @@ function Checkout() {
               <FaUser className="section-icon" />
               <h2>Shipping Information</h2>
             </div>
-            
+
             <div className="form-grid">
               <div className="form-group">
                 <label>First Name *</label>
@@ -313,7 +414,7 @@ function Checkout() {
                 />
                 {errors.firstName && <span className="error-message">{errors.firstName}</span>}
               </div>
-              
+
               <div className="form-group">
                 <label>Last Name *</label>
                 <input
@@ -325,7 +426,7 @@ function Checkout() {
                 />
                 {errors.lastName && <span className="error-message">{errors.lastName}</span>}
               </div>
-              
+
               <div className="form-group">
                 <label>Email Address *</label>
                 <input
@@ -337,7 +438,7 @@ function Checkout() {
                 />
                 {errors.email && <span className="error-message">{errors.email}</span>}
               </div>
-              
+
               <div className="form-group">
                 <label>Phone Number *</label>
                 <input
@@ -349,7 +450,7 @@ function Checkout() {
                 />
                 {errors.phone && <span className="error-message">{errors.phone}</span>}
               </div>
-              
+
               <div className="form-group full-width">
                 <label>Street Address *</label>
                 <input
@@ -371,25 +472,40 @@ function Checkout() {
                 >
                   <option value="">Select County</option>
                   {KENYAN_COUNTIES.map((county, index) => (
-                    // ✅ FIXED: Unique keys
                     <option key={`${county}-${index}`} value={county}>{county}</option>
                   ))}
                 </select>
                 {errors.county && <span className="error-message">{errors.county}</span>}
               </div>
-              
+
               <div className="form-group">
                 <label>City/Town *</label>
-                <input
-                  type="text"
+                <select
                   value={shippingInfo.city}
                   onChange={(e) => handleInputChange('city', e.target.value)}
                   className={errors.city ? 'error' : ''}
-                  placeholder="Nairobi"
-                />
+                  disabled={!shippingInfo.county}
+                >
+                  <option value="">Select City/Town</option>
+                  {shippingInfo.county && KENYA_LOCATIONS[shippingInfo.county]?.map((city, index) => (
+                    <option key={`${city}-${index}`} value={city}>{city}</option>
+                  ))}
+                  {shippingInfo.county && <option value="Other">Other (Manual Entry)</option>}
+                </select>
                 {errors.city && <span className="error-message">{errors.city}</span>}
               </div>
-              
+
+              {shippingInfo.city === 'Other' && (
+                <div className="form-group">
+                  <label>Specify City/Town *</label>
+                  <input
+                    type="text"
+                    onChange={(e) => setShippingInfo(prev => ({ ...prev, manualCity: e.target.value }))}
+                    placeholder="Enter town name"
+                  />
+                </div>
+              )}
+
               <div className="form-group">
                 <label>Country</label>
                 <select
@@ -407,9 +523,9 @@ function Checkout() {
               <FaLock className="section-icon" />
               <h2>Payment Method</h2>
             </div>
-            
+
             <div className="payment-options">
-              <div 
+              <div
                 className={`payment-option ${paymentMethod === 'mpesa' ? 'active' : ''}`}
                 onClick={() => setPaymentMethod('mpesa')}
               >
@@ -424,8 +540,8 @@ function Checkout() {
                   <div className={`radio-dot ${paymentMethod === 'mpesa' ? 'active' : ''}`}></div>
                 </div>
               </div>
-              
-              <div 
+
+              <div
                 className={`payment-option ${paymentMethod === 'card' ? 'active' : ''}`}
                 onClick={() => setPaymentMethod('card')}
               >
@@ -440,8 +556,8 @@ function Checkout() {
                   <div className={`radio-dot ${paymentMethod === 'card' ? 'active' : ''}`}></div>
                 </div>
               </div>
-              
-              <div 
+
+              <div
                 className={`payment-option ${paymentMethod === 'cod' ? 'active' : ''}`}
                 onClick={() => setPaymentMethod('cod')}
               >
@@ -457,6 +573,107 @@ function Checkout() {
                 </div>
               </div>
             </div>
+
+            {/* Dynamic Payment Inputs */}
+            {paymentMethod === 'mpesa' && (
+              <div className="payment-details-section mpesa-section">
+                <div className="form-group">
+                  <label>M-Pesa Phone Number *</label>
+                  <input
+                    type="tel"
+                    value={mpesaPhone}
+                    onChange={handleMpesaPhoneChange}
+                    placeholder="+254 712 345 678"
+                    maxLength="14"
+                  />
+                  <p className="payment-note">
+                    <FaPhone className="note-icon" />
+                    You will receive an STK push on this number to complete payment
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {paymentMethod === 'card' && (
+              <div className="payment-details-section card-section">
+                <div className="form-group">
+                  <label>Cardholder Name *</label>
+                  <input
+                    type="text"
+                    value={cardDetails.cardholderName}
+                    onChange={(e) => setCardDetails(prev => ({ ...prev, cardholderName: e.target.value }))}
+                    placeholder="John Doe"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Card Number *</label>
+                  <input
+                    type="text"
+                    value={cardDetails.cardNumber}
+                    onChange={handleCardNumberChange}
+                    placeholder="1234 5678 9012 3456"
+                    maxLength="19"
+                  />
+                </div>
+
+                <div className="card-row">
+                  <div className="form-group">
+                    <label>Expiry Date *</label>
+                    <input
+                      type="text"
+                      value={cardDetails.expiryDate}
+                      onChange={handleExpiryChange}
+                      placeholder="MM/YY"
+                      maxLength="5"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>CVV *</label>
+                    <input
+                      type="text"
+                      value={cardDetails.cvv}
+                      onChange={handleCVVChange}
+                      placeholder="123"
+                      maxLength="4"
+                    />
+                  </div>
+                </div>
+
+                <p className="payment-note">
+                  <FaLock className="note-icon" />
+                  Your card details are secure and encrypted
+                </p>
+              </div>
+            )}
+
+            {paymentMethod === 'cod' && (
+              <div className="payment-details-section cod-section">
+                <div className="cod-notice">
+                  <FaInfoCircle className="info-icon" />
+                  <div className="notice-content">
+                    <h4>Cash on Delivery</h4>
+                    <p>Pay KSh {total.toLocaleString()} when you receive your order</p>
+                  </div>
+                </div>
+
+                {total > 10000 && (
+                  <div className="cod-limit-warning">
+                    <FaInfoCircle />
+                    <p>⚠️ COD is only available for orders under KSh 10,000. Please choose another payment method.</p>
+                  </div>
+                )}
+
+                <label className="cod-confirmation">
+                  <input
+                    type="checkbox"
+                    checked={codConfirmed}
+                    onChange={(e) => setCodConfirmed(e.target.checked)}
+                  />
+                  <span>I confirm I have cash available for payment on delivery</span>
+                </label>
+              </div>
+            )}
           </div>
         </div>
 
@@ -465,13 +682,13 @@ function Checkout() {
             <h3>Order Summary</h3>
             <span>{cart.length} {cart.length === 1 ? 'item' : 'items'}</span>
           </div>
-          
+
           <div className="summary-items">
             {cart.map((item, index) => (
               <div key={index} className="summary-item">
                 <div className="item-image">
-                  <img 
-                    src={item.images?.[0]?.url || '/default-product.jpg'} 
+                  <img
+                    src={item.images?.[0]?.url || '/default-product.jpg'}
                     alt={item.name}
                   />
                 </div>
@@ -488,7 +705,7 @@ function Checkout() {
               </div>
             ))}
           </div>
-          
+
           <div className="summary-totals">
             <div className="total-row">
               <span>Subtotal</span>
@@ -510,15 +727,15 @@ function Checkout() {
               <span>KSh {total.toLocaleString()}</span>
             </div>
           </div>
-          
-          <button 
+
+          <button
             className="btn-primary place-order-btn"
             onClick={handlePlaceOrder}
             disabled={loading || calculatingShipping}
           >
             {loading ? 'Processing Your Order...' : `Place Order - KSh ${total.toLocaleString()}`}
           </button>
-          
+
           <div className="security-notice">
             <FaLock />
             <span>Your payment information is secure and encrypted.</span>

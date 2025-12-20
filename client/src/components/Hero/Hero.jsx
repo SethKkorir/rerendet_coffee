@@ -15,38 +15,38 @@ const Hero = () => {
   return (
     <section className="hero-section" id="hero" data-testid="hero-section">
       {/* Background Image */}
-      <div 
+      <div
         className="hero-background"
         style={{ backgroundImage: `url(${heroImage})` }}
       />
-      
+
       {/* Dark Overlay */}
       <div className="hero-overlay" />
-      
+
       {/* Main Content */}
       <div className="hero-container">
         <div className="hero-content">
-          
+
           {/* Premium Badge */}
           <div className="hero-badge" data-testid="badge-hero-premium">
             <span className="hero-badge-text">PREMIUM BLEND</span>
           </div>
-          
+
           {/* Main Heading */}
           <h1 className="hero-heading" data-testid="text-hero-headline">
             Start Your Day With{" "}
-            <span className="hero-heading-accent">Real Coffee.</span>
+            <span className="hero-heading-accent">Rerendet-Coffee.</span>
           </h1>
-          
+
           {/* Description */}
           <p className="hero-description">
             Boost your productivity and mood with our 100% natural Arabica roast
             from the highlands of Kenya. Smooth, bold, and delivered to your door.
           </p>
-          
+
           {/* CTA Buttons */}
           <div className="hero-cta">
-            <button 
+            <button
               className="hero-cta-btn hero-cta-btn-primary"
               onClick={() => scrollToSection('coffee-shop')}
               data-testid="button-order-now"
@@ -54,7 +54,7 @@ const Hero = () => {
               Order Now
               <FaArrowRight className="hero-cta-icon" />
             </button>
-            <button 
+            <button
               className="hero-cta-btn hero-cta-btn-secondary"
               onClick={() => scrollToSection('about')}
             >
@@ -62,7 +62,7 @@ const Hero = () => {
               Our Story
             </button>
           </div>
-          
+
           {/* Stats / Social Proof */}
           <div className="hero-stats" data-testid="hero-social-proof">
             <div className="hero-stat" data-testid="stat-reviews">
@@ -90,7 +90,7 @@ const Hero = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Scroll Indicator */}
       <div className="hero-scroll-indicator">
         <div className="hero-scroll-dot" />

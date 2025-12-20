@@ -5,12 +5,16 @@ import { upload } from '../middleware/uploadMiddleware.js';
 import {
   getSettings,
   updateSettings,
-  uploadLogo
+  uploadLogo,
+  getPublicSettings
 } from '../controllers/settingsController.js';
 
 const router = express.Router();
 
-// All routes are protected and require admin role
+// Public routes
+router.get('/public', getPublicSettings);
+
+// Protected routes
 router.use(protect, admin);
 
 // Settings routes

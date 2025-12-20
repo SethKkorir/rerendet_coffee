@@ -2,7 +2,7 @@
   "name": "react-ui",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:5000",
+  "proxy": "http://localhost:5004",
   "dependencies": {
     "@chakra-ui/react": "^3.27.0",
     "@emotion/react": "^11.14.0",
@@ -38,6 +38,7 @@
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.9.3",
     "react-scripts": "^5.0.1",
+    "recharts": "^2.12.7",
     "styled-components": "^6.1.19",
     "web-vitals": "^2.1.4",
     "ws": "^8.18.2",

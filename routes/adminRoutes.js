@@ -18,7 +18,9 @@ import {
   updateContactStatus,
   getSettings,
   updateSettings,
-  getSalesAnalytics
+  getSalesAnalytics,
+  updateUserRole,
+  deleteUser
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -42,6 +44,8 @@ router.delete('/products/:id', adminAuth(['products:manage']), deleteProduct);
 
 // ==================== USER MANAGEMENT ====================
 router.get('/users', adminAuth(['users:view']), getUsers);
+router.put('/users/:id/role', adminAuth(['users:manage']), updateUserRole);
+router.delete('/users/:id', adminAuth(['users:manage']), deleteUser);
 
 // ==================== CONTACT MANAGEMENT ====================
 router.get('/contacts', adminAuth(['contacts:manage']), getContacts);
@@ -70,8 +74,8 @@ router.get('/analytics/sales', adminAuth(['analytics:view']), getSalesAnalytics)
 
 // ==================== ADMIN DASHBOARD ====================
 router.get('/dashboard', (req, res) => {
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'Admin dashboard',
     data: {
       welcome: 'Welcome to Rerendet Coffee Admin Dashboard',

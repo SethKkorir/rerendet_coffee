@@ -17,6 +17,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import settingsRoutes from './routes/settingsRoutes.js';
 
 // Import models
 import Product from './models/Product.js';
@@ -38,11 +39,11 @@ connectDB();
 const createDefaultAdmin = async () => {
   try {
     const adminExists = await User.findOne({ email: 'admin@rerendetcoffee.com' });
-    
+
     if (!adminExists) {
       await User.create({
         firstName: 'Super',
-        lastName: 'Admin', 
+        lastName: 'Admin',
         email: 'admin@rerendetcoffee.com',
         password: 'Admin123!',
         phone: '+254700000000',
@@ -77,8 +78,8 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
+    'Content-Type',
+    'Authorization',
     'X-Requested-With',
     'Accept',
     'Origin',
@@ -140,6 +141,17 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
+// Specific limiter for admin login (stricter)
+const adminLoginLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // limit each IP to 10 attempts per hour
+  message: {
+    success: false,
+    message: 'Too many admin login attempts from this IP, please try again after an hour.'
+  },
+  trustProxy: true
+});
+
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -149,11 +161,11 @@ app.use((req, res, next) => {
   // Remove conflicting headers that might block Google OAuth
   res.removeHeader('Cross-Origin-Opener-Policy');
   res.removeHeader('Cross-Origin-Embedder-Policy');
-  
+
   // Set permissive headers for OAuth
   res.setHeader('Access-Control-Allow-Private-Network', 'true');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  
+
   next();
 });
 
@@ -169,6 +181,7 @@ app.get('/api/debug/jwt', (req, res) => {
 // ==================== ROUTES ====================
 
 // API Routes
+app.use('/api/auth/admin/login', adminLoginLimiter); // Apply strict limit to admin login
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
@@ -178,6 +191,8 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/admin/settings', settingsRoutes);
+app.use('/api/settings', settingsRoutes); // Public settings endpoint
 
 // ==================== DEVELOPMENT ONLY ROUTES ====================
 
@@ -197,8 +212,8 @@ if (process.env.NODE_ENV !== 'production') {
         }
       ];
 
-      await Product.deleteMany({ 
-        name: { $in: testProducts.map(p => p.name) } 
+      await Product.deleteMany({
+        name: { $in: testProducts.map(p => p.name) }
       });
 
       const createdProducts = await Product.insertMany(testProducts);
@@ -225,7 +240,7 @@ if (process.env.NODE_ENV !== 'production') {
   app.get('/api/dev/users', async (req, res) => {
     try {
       const users = await User.find().select('email firstName lastName userType role isVerified');
-      
+
       res.json({
         success: true,
         data: {
@@ -285,29 +300,39 @@ app.post('/api/contact', async (req, res) => {
 
 // Health check route
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
+  res.status(200).json({
     success: true,
-    message: 'Server is running!', 
+    message: 'Server is running!',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
+});
+
+// Debug route for orders
+app.get('/api/dev/orders-test', async (req, res) => {
+  try {
+    const orders = await mongoose.model('Order').find().limit(1).lean();
+    res.json({ success: true, count: orders.length, sample: orders[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ==================== ERROR HANDLING ====================
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    message: 'Route not found' 
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
   });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Server Error:', err.stack);
-  res.status(500).json({ 
-    success: false, 
+  res.status(500).json({
+    success: false,
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
@@ -317,12 +342,12 @@ app.get('/api/debug/database', async (req, res) => {
     // Test if collections exist
     const collections = await mongoose.connection.db.listCollections().toArray();
     const collectionNames = collections.map(col => col.name);
-    
+
     // Test basic queries
     const productsCount = await mongoose.model('Product').countDocuments();
     const usersCount = await mongoose.model('User').countDocuments();
     const ordersCount = await mongoose.model('Order').countDocuments();
-    
+
     res.json({
       success: true,
       data: {
@@ -348,7 +373,7 @@ app.get('/api/debug/database', async (req, res) => {
 app.get('/api/debug/jwt-check', (req, res) => {
   const authHeader = req.headers.authorization;
   let token = null;
-  
+
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
   }
@@ -366,12 +391,12 @@ app.get('/api/debug/database-test', async (req, res) => {
     // Test basic database operations
     const collections = await mongoose.connection.db.listCollections().toArray();
     const collectionNames = collections.map(col => col.name);
-    
+
     // Test each model
     const productsCount = await mongoose.model('Product').countDocuments();
     const usersCount = await mongoose.model('User').countDocuments();
     const ordersCount = await mongoose.model('Order').countDocuments();
-    
+
     res.json({
       success: true,
       data: {
@@ -400,12 +425,12 @@ app.get('/api/debug/admin-test', async (req, res) => {
     const totalOrders = await mongoose.model('Order').countDocuments();
     const totalProducts = await mongoose.model('Product').countDocuments({ isActive: true });
     const totalUsers = await mongoose.model('User').countDocuments({ userType: 'customer' });
-    
+
     res.json({
       success: true,
       data: {
         totalOrders,
-        totalProducts, 
+        totalProducts,
         totalUsers
       }
     });

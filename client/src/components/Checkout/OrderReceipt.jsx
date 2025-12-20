@@ -29,7 +29,10 @@ export default function OrderReceipt() {
     <div className="receipt">
       <h2>Order Confirmed</h2>
       <p>Order ID: <strong>{order._id || order.id}</strong></p>
-      <p>Total: <strong>KES {order.total || (order.subtotal + order.shippingCost)}</strong></p>
+      <p>Subtotal: <strong>KES {(order.subtotal || 0).toLocaleString()}</strong></p>
+      <p>Shipping: <strong>KES {(order.shippingCost || 0).toLocaleString()}</strong></p>
+      <p>Tax (16% VAT): <strong>KES {(order.tax || 0).toLocaleString()}</strong></p>
+      <p>Total: <strong>KES {(order.total || (order.subtotal + order.shippingCost + (order.tax || 0))).toLocaleString()}</strong></p>
       <h4>Shipping</h4>
       <div>{order.shipping?.address || order.shipping?.city}, {order.shipping?.country}</div>
       <h4>Items</h4>

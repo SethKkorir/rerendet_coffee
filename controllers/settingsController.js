@@ -8,11 +8,11 @@ import Settings from '../models/Settings.js';
 const getSettings = asyncHandler(async (req, res) => {
   try {
     console.log('🔧 Fetching settings...');
-    
+
     const settings = await Settings.getSettings();
-    
+
     console.log('✅ Settings fetched successfully');
-    
+
     res.json({
       success: true,
       data: settings
@@ -33,22 +33,22 @@ const getSettings = asyncHandler(async (req, res) => {
 const updateSettings = asyncHandler(async (req, res) => {
   try {
     console.log('🔧 Updating settings...', req.body);
-    
+
     const settings = await Settings.getSettings();
-    
+
     // Update settings with new data
     const updatedSettings = await Settings.findOneAndUpdate(
       {},
       { $set: req.body },
-      { 
-        new: true, 
+      {
+        new: true,
         runValidators: true,
-        upsert: true 
+        upsert: true
       }
     );
 
     console.log('✅ Settings updated successfully');
-    
+
     res.json({
       success: true,
       message: 'Settings updated successfully',
@@ -56,7 +56,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Update settings error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -65,7 +65,7 @@ const updateSettings = asyncHandler(async (req, res) => {
         errors: errors
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to update settings',
@@ -87,11 +87,11 @@ const uploadLogo = asyncHandler(async (req, res) => {
     }
 
     console.log('📸 Logo uploaded:', req.file);
-    
+
     // In a real application, you'd upload to cloud storage (AWS S3, Cloudinary, etc.)
     // For now, we'll return the file path
     const logoUrl = `/uploads/${req.file.filename}`;
-    
+
     // Update settings with new logo
     const settings = await Settings.getSettings();
     settings.store.logo = logoUrl;
@@ -112,8 +112,44 @@ const uploadLogo = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get public settings
+// @route   GET /api/settings/public
+// @access  Public
+const getPublicSettings = asyncHandler(async (req, res) => {
+  try {
+    const settings = await Settings.getSettings();
+
+    // Return only public information
+    const publicSettings = {
+      store: settings.store,
+      businessHours: settings.businessHours,
+      payment: {
+        currency: settings.payment.currency,
+        currencySymbol: settings.payment.currencySymbol,
+        freeShippingThreshold: settings.payment.freeShippingThreshold,
+        shippingPrice: settings.payment.shippingPrice,
+        paymentMethods: settings.payment.paymentMethods
+      },
+      seo: settings.seo,
+      maintenance: settings.maintenance
+    };
+
+    res.json({
+      success: true,
+      data: publicSettings
+    });
+  } catch (error) {
+    console.error('Get public settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch settings'
+    });
+  }
+});
+
 export {
   getSettings,
   updateSettings,
-  uploadLogo
+  uploadLogo,
+  getPublicSettings
 };

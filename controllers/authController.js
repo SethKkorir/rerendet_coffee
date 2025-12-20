@@ -13,7 +13,9 @@ dotenv.config();
 // Customer registration
 const registerCustomer = asyncHandler(async (req, res) => {
   const { firstName, lastName, email, password, phone, gender, dateOfBirth, userType = 'customer' } = req.body;
-  
+  // ... (rest of the file)
+
+
   console.log(`👤 Customer registration attempt:`, email);
 
   // Validate required fields
@@ -59,7 +61,7 @@ const registerCustomer = asyncHandler(async (req, res) => {
 
   try {
     console.log(`📧 Sending verification email to customer:`, email);
-    
+
     // Send verification email
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -82,9 +84,13 @@ const registerCustomer = asyncHandler(async (req, res) => {
     `;
 
     await sendEmail({
-      email: newUser.email,
+      to: newUser.email,
       subject: `Verify Your Email - Rerendet Coffee`,
-      html: emailHtml
+      templateName: 'verificationEmail',
+      data: {
+        firstName: firstName,
+        verificationCode: verificationCode
+      }
     });
 
     console.log(`✅ Verification email sent to customer:`, email);
@@ -110,14 +116,92 @@ const registerCustomer = asyncHandler(async (req, res) => {
   }
 });
 
+// Google Login
+import { OAuth2Client } from 'google-auth-library';
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const googleLogin = asyncHandler(async (req, res) => {
+  const { credential } = req.body;
+
+  if (!credential) {
+    res.status(400);
+    throw new Error('Google credential is required');
+  }
+
+  try {
+    // Verify Google Token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    const payload = ticket.getPayload();
+    const { email, given_name: firstName, family_name: lastName, picture, sub: googleId } = payload;
+
+    // Check if user exists
+    let user = await User.findOne({ email }).populate('cart.product');
+
+    if (user) {
+      // If user exists, update googleId if missing
+      if (!user.googleId) {
+        user.googleId = googleId;
+        if (!user.profilePicture) user.profilePicture = picture;
+        // Auto-verify if trusting Google
+        if (!user.isVerified) user.isVerified = true;
+        await user.save();
+      }
+    } else {
+      // Create new user
+      user = await User.create({
+        firstName,
+        lastName: lastName || firstName, // Handle missing last name
+        email,
+        password: Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "!", // Secure random password
+        googleId,
+        userType: 'customer',
+        role: 'customer',
+        isVerified: true, // Google emails are verified
+        profilePicture: picture
+      });
+    }
+
+    // Generate Token
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      message: 'Google login successful',
+      data: {
+        user: {
+          id: user._id,
+          _id: user._id, // Add for consistency
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          userType: user.userType,
+          role: user.role,
+          isVerified: user.isVerified,
+          profilePicture: user.profilePicture,
+          cart: user.cart || []
+        },
+        token
+      }
+    });
+
+  } catch (error) {
+    console.error('Google Auth Error:', error);
+    res.status(401);
+    throw new Error('Invalid Google Token');
+  }
+});
+
 // Customer login
 const loginCustomer = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   console.log('👤 Customer login attempt:', email);
 
   // Only look for customers
-  const user = await User.findOne({ 
-    email, 
+  const user = await User.findOne({
+    email,
     userType: 'customer'  // Only customers
   }).select('+password +isVerified +loginAttempts +lockUntil +verificationCode +verificationCodeExpires');
 
@@ -138,7 +222,7 @@ const loginCustomer = asyncHandler(async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     console.log('❌ Invalid password for customer:', email);
-    
+
     // Increment login attempts
     await User.findByIdAndUpdate(user._id, {
       $inc: { loginAttempts: 1 }
@@ -169,7 +253,7 @@ const loginCustomer = asyncHandler(async (req, res) => {
   // Check if account is verified
   if (!user.isVerified) {
     console.log('❌ Customer account not verified:', email);
-    
+
     // Resend verification code
     const verificationCode = user.generateVerificationCode();
     await user.save({ validateBeforeSave: false });
@@ -192,6 +276,9 @@ const loginCustomer = asyncHandler(async (req, res) => {
   user.lastLoginAt = new Date();
   await user.save();
 
+  // Populate cart after save
+  await user.populate('cart.product');
+
   // Generate token
   const token = generateToken(user._id);
 
@@ -203,6 +290,7 @@ const loginCustomer = asyncHandler(async (req, res) => {
     data: {
       user: {
         id: user._id,
+        _id: user._id, // Add for consistency
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
@@ -211,11 +299,131 @@ const loginCustomer = asyncHandler(async (req, res) => {
         role: user.role,
         isVerified: user.isVerified,
         profilePicture: user.profilePicture,
-        shippingInfo: user.shippingInfo || {}
+        shippingInfo: user.shippingInfo || {},
+        cart: user.cart || []
       },
       token
     }
   });
+});
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+const updateProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+    // Validate age if updating dateOfBirth
+    if (req.body.dateOfBirth) {
+      const age = Math.floor((new Date() - new Date(req.body.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000));
+      if (age < 13) {
+        res.status(400);
+        throw new Error('You must be at least 13 years old');
+      }
+    }
+
+    user.firstName = req.body.firstName || user.firstName;
+    user.lastName = req.body.lastName || user.lastName;
+    user.phone = req.body.phone || user.phone;
+    user.gender = req.body.gender || user.gender;
+    user.dateOfBirth = req.body.dateOfBirth || user.dateOfBirth;
+
+    // Handle newsletter preference if sent
+    if (req.body.preferences) {
+      user.preferences = { ...user.preferences, ...req.body.preferences };
+    }
+
+    const updatedUser = await user.save();
+
+    res.json({
+      success: true,
+      data: {
+        _id: updatedUser._id,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        userType: updatedUser.userType,
+        role: updatedUser.role,
+        isVerified: updatedUser.isVerified,
+        profilePicture: updatedUser.profilePicture,
+        preferences: updatedUser.preferences
+      }
+    });
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
+});
+
+// @desc    Change user password
+// @route   PUT /api/auth/change-password
+// @access  Private
+// Change password
+const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (newPassword && newPassword.length < 8) {
+    res.status(400);
+    throw new Error('New password must be at least 8 characters long');
+  }
+
+  const user = await User.findById(req.user._id).select('+password');
+
+  if (user && (await bcrypt.compare(currentPassword, user.password))) {
+    user.password = newPassword;
+    await user.save();
+
+    // Clear sensitive data
+    user.password = undefined;
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } else {
+    res.status(401);
+    throw new Error('Invalid current password');
+  }
+});
+
+// @desc    Delete user account
+// @route   DELETE /api/auth/profile
+// @access  Private
+const deleteAccount = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+    const userEmail = user.email;
+    const firstName = user.firstName;
+
+    await User.deleteOne({ _id: user._id });
+
+    // Send regret email
+    try {
+      await sendEmail({
+        to: userEmail,
+        subject: "Account Deleted - We'll Miss You! ☕",
+        templateName: 'regretEmail',
+        data: {
+          firstName: firstName,
+          frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000'
+        }
+      });
+      console.log('📧 Regret email sent to:', userEmail);
+    } catch (emailError) {
+      console.error('❌ Failed to send regret email:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Account deleted successfully'
+    });
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
 });
 
 // ==================== ADMIN AUTH ====================
@@ -227,17 +435,22 @@ const loginAdmin = asyncHandler(async (req, res) => {
 
   try {
     // Find admin user ONLY
-    const user = await User.findOne({ 
-      email, 
+    const user = await User.findOne({
+      email,
       userType: 'admin'
-    }).select('+password +adminPermissions +role +isVerified +isActive');
-
-    console.log('🔍 Admin user search result:', user ? 'FOUND' : 'NOT FOUND');
+    }).select('+password +adminPermissions +role +isVerified +isActive +loginAttempts +lockUntil');
 
     if (!user) {
-      console.log('❌ Admin not found - user exists but not as admin:', email);
+      console.log('❌ Admin not found:', email);
       res.status(401);
-      throw new Error('Invalid admin credentials');
+      throw new Error('Invalid email or password');
+    }
+
+    // Check if account is locked
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      const lockTime = Math.ceil((user.lockUntil - Date.now()) / (60 * 1000));
+      res.status(423);
+      throw new Error(`Account temporarily locked. Try again in ${lockTime} minutes.`);
     }
 
     // Check if admin account is active
@@ -248,14 +461,36 @@ const loginAdmin = asyncHandler(async (req, res) => {
     }
 
     // Verify password
-    console.log('🔐 Verifying password...');
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log('🔐 Password match result:', isMatch);
 
     if (!isMatch) {
       console.log('❌ Invalid password for admin:', email);
+
+      // Increment login attempts
+      const attempts = (user.loginAttempts || 0) + 1;
+      await User.findByIdAndUpdate(user._id, {
+        $set: { loginAttempts: attempts }
+      });
+
+      // Check if we should lock the account (threshold: 5)
+      if (attempts >= 5) {
+        await User.findByIdAndUpdate(user._id, {
+          $set: { lockUntil: Date.now() + (2 * 60 * 60 * 1000) } // 2 hours
+        });
+        res.status(423);
+        throw new Error('Too many failed attempts. Account locked for 2 hours.');
+      }
+
       res.status(401);
-      throw new Error('Invalid admin credentials');
+      throw new Error('Invalid email or password');
+    }
+
+    // Reset login attempts on successful login
+    if (user.loginAttempts > 0 || user.lockUntil) {
+      await User.findByIdAndUpdate(user._id, {
+        $set: { loginAttempts: 0 },
+        $unset: { lockUntil: 1 }
+      });
     }
 
     // Check if admin account is verified
@@ -370,9 +605,15 @@ const createAdmin = asyncHandler(async (req, res) => {
     `;
 
     await sendEmail({
-      email: admin.email,
+      to: admin.email,
       subject: `🎯 Admin Account Activated - Rerendet Coffee ${role.toUpperCase()}`,
-      html: welcomeHtml
+      templateName: 'adminWelcomeEmail',
+      data: {
+        firstName: firstName,
+        permissions: defaultPermissions,
+        role: role,
+        adminUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/admin/login`
+      }
     });
 
     console.log('✅ Admin welcome email sent to:', email);
@@ -399,8 +640,8 @@ const createAdmin = asyncHandler(async (req, res) => {
 // Verify email
 const verifyEmail = asyncHandler(async (req, res) => {
   const { email, code } = req.body;
-  
-  const user = await User.findOne({ 
+
+  const user = await User.findOne({
     email,
     verificationCode: code,
     verificationCodeExpires: { $gt: Date.now() }
@@ -435,44 +676,46 @@ const verifyEmail = asyncHandler(async (req, res) => {
       </div>
     `;
     await sendEmail({
-      email: user.email,
+      to: user.email,
       subject: 'Welcome to Rerendet Coffee! 🎉',
-      html: welcomeHtml
+      templateName: 'welcomeEmail',
+      data: {
+        firstName: user.firstName,
+        frontendUrl: process.env.CLIENT_URL || 'http://localhost:3000'
+      }
     });
   } catch (welcomeError) {
     // Email failure doesn't stop flow
   }
 
-  res.json({
+  res.status(200).json({
     success: true,
-    message: 'Email verified successfully! Welcome to Rerendet Coffee!',
     data: {
-      token,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        phone: user.phone,
-        userType: user.userType,
-        role: user.role,
-        isVerified: user.isVerified
-      }
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      userType: user.userType,
+      role: user.role,
+      isVerified: user.isVerified,
+      cart: user.cart || [],
+      token
     }
   });
 });
 
 // Get current user profile
 const getCurrentUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-  
+  const user = await User.findById(req.user._id).populate('cart.product');
+
   if (!user) {
     res.status(404);
     throw new Error('User not found');
   }
 
   const userData = {
-    id: user._id,
+    _id: user._id,
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
@@ -496,52 +739,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 // Update user profile
-const updateProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
 
-  if (!user) {
-    res.status(404);
-    throw new Error('User not found');
-  }
-
-  const { firstName, lastName, phone, gender, dateOfBirth } = req.body;
-
-  // Validate age if updating dateOfBirth
-  if (dateOfBirth) {
-    const age = Math.floor((new Date() - new Date(dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000));
-    if (age < 13) {
-      res.status(400);
-      throw new Error('You must be at least 13 years old');
-    }
-  }
-
-  // Update fields
-  user.firstName = firstName || user.firstName;
-  user.lastName = lastName || user.lastName;
-  user.phone = phone || user.phone;
-  user.gender = gender || user.gender;
-  user.dateOfBirth = dateOfBirth || user.dateOfBirth;
-
-  const updatedUser = await user.save();
-
-  res.json({
-    success: true,
-    message: 'Profile updated successfully',
-    data: {
-      id: updatedUser._id,
-      firstName: updatedUser.firstName,
-      lastName: updatedUser.lastName,
-      email: updatedUser.email,
-      phone: updatedUser.phone,
-      gender: updatedUser.gender,
-      dateOfBirth: updatedUser.dateOfBirth,
-      profilePicture: updatedUser.profilePicture,
-      userType: updatedUser.userType,
-      role: updatedUser.role,
-      isVerified: updatedUser.isVerified
-    }
-  });
-});
 
 // Logout
 const logout = asyncHandler(async (req, res) => {
@@ -554,14 +752,14 @@ const logout = asyncHandler(async (req, res) => {
 // Check email availability
 const checkEmail = asyncHandler(async (req, res) => {
   const { email } = req.query;
-  
+
   if (!email) {
     res.status(400);
     throw new Error('Email parameter is required');
   }
 
   const user = await User.findOne({ email });
-  
+
   res.json({
     success: true,
     data: {
@@ -574,14 +772,14 @@ const checkEmail = asyncHandler(async (req, res) => {
 // Forgot password
 const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  
+
   if (!email) {
     res.status(400);
     throw new Error('Email is required');
   }
 
   const user = await User.findOne({ email });
-  
+
   if (!user) {
     res.status(404);
     throw new Error('User not found with this email');
@@ -608,11 +806,14 @@ const forgotPassword = asyncHandler(async (req, res) => {
     `;
 
     await sendEmail({
-      email: user.email,
+      to: user.email,
       subject: 'Password Reset Code - Rerendet Coffee',
-      html: emailHtml
+      templateName: 'passwordResetEmail',
+      data: {
+        resetCode: resetCode
+      }
     });
-    
+
     res.json({
       success: true,
       message: 'Password reset code sent to your email'
@@ -629,7 +830,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
 // Reset password
 const resetPassword = asyncHandler(async (req, res) => {
   const { email, code, newPassword } = req.body;
-  
+
   if (!email || !code || !newPassword) {
     res.status(400);
     throw new Error('Email, code, and new password are required');
@@ -662,17 +863,20 @@ const resetPassword = asyncHandler(async (req, res) => {
   });
 });
 
+// Change password
+
+
 // Resend verification code
 const resendVerification = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  
+
   if (!email) {
     res.status(400);
     throw new Error('Email is required');
   }
 
   const user = await User.findOne({ email, userType: 'customer' });
-  
+
   if (!user) {
     res.status(404);
     throw new Error('User not found with this email');
@@ -707,9 +911,13 @@ const resendVerification = asyncHandler(async (req, res) => {
     `;
 
     await sendEmail({
-      email: user.email,
+      to: user.email,
       subject: 'New Verification Code - Rerendet Coffee',
-      html: emailHtml
+      templateName: 'verificationEmail',
+      data: {
+        firstName: user.firstName,
+        verificationCode: verificationCode
+      }
     });
 
     console.log('✅ Verification email resent to:', email);
@@ -730,11 +938,12 @@ export {
   // Customer auth
   registerCustomer,
   loginCustomer,
-  
+  googleLogin,
+
   // Admin auth
   loginAdmin,
   createAdmin,
-  
+
   // Common auth
   verifyEmail,
   getCurrentUser,
@@ -743,5 +952,58 @@ export {
   checkEmail,
   forgotPassword,
   resetPassword,
-  resendVerification
+  resendVerification,
+  changePassword,
+  deleteAccount
 };
+
+/**
+ * @desc    Get user's saved cart
+ * @route   GET /api/auth/cart
+ * @access  Private
+ */
+export const getCart = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).populate('cart.product');
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  res.status(200).json({
+    success: true,
+    data: user.cart || []
+  });
+});
+
+/**
+ * @desc    Sync user's cart with database
+ * @route   POST /api/auth/cart
+ * @access  Private
+ */
+export const syncCart = asyncHandler(async (req, res) => {
+  const { cart } = req.body;
+
+  if (!Array.isArray(cart)) {
+    res.status(400);
+    throw new Error('Invalid cart data');
+  }
+
+  // Map frontend cart to database structure
+  const formattedCart = cart.map(item => ({
+    product: item.productId || item._id,
+    quantity: item.quantity,
+    size: item.size || '250g'
+  }));
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    { cart: formattedCart },
+    { new: true, runValidators: true }
+  ).populate('cart.product');
+
+  res.status(200).json({
+    success: true,
+    data: user.cart
+  });
+});

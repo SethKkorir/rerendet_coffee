@@ -68,6 +68,11 @@ const orderSchema = new mongoose.Schema({
     required: true,
     default: 0
   },
+  tax: {
+    type: Number,
+    required: true,
+    default: 0
+  },
   total: {
     type: Number,
     required: true
@@ -89,6 +94,20 @@ const orderSchema = new mongoose.Schema({
   transactionId: {
     type: String
   },
+  trackingNumber: {
+    type: String
+  },
+  estimatedDeliveryDate: {
+    type: Date
+  },
+  trackingHistory: [
+    {
+      status: String,
+      timestamp: { type: Date, default: Date.now },
+      message: String,
+      location: String
+    }
+  ],
   notes: {
     type: String
   }
@@ -97,7 +116,7 @@ const orderSchema = new mongoose.Schema({
 });
 
 // FIXED: Generate order number - make sure this runs
-orderSchema.pre('save', function(next) {
+orderSchema.pre('save', function (next) {
   if (this.isNew && !this.orderNumber) {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');

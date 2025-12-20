@@ -1,102 +1,53 @@
 // components/AccountDashboard.jsx - MODERN REDESIGN
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { 
-  FaUser, FaShoppingBag, FaMapMarkerAlt, FaCreditCard, 
-  FaHeart, FaCog, FaShieldAlt, FaCoffee, FaStar,
+import {
+  FaUser, FaShoppingBag, FaMapMarkerAlt, FaCreditCard,
+  FaHeart, FaCog, FaShieldAlt, FaCoffee,
   FaEdit, FaPlus, FaTrash, FaEye, FaEyeSlash,
   FaBox, FaTruck, FaCheckCircle, FaClock, FaUserCircle,
-  FaExclamationTriangle, FaTimes, FaSearch,
+  FaExclamationTriangle, FaTimes, FaSearch, FaShippingFast,
   FaArrowLeft, FaArrowRight, FaShoppingCart, FaHistory,
-  FaGift, FaBell, FaCrown, FaAward, FaRocket
+  FaGift, FaBell, FaCrown, FaRocket, FaBars, FaSignOutAlt
 } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import './AccountDashboard.css';
 
 function AccountDashboard() {
-  const { user, showSuccess, showError, logout } = useContext(AppContext);
+  const {
+    user,
+    showSuccess,
+    showError,
+    updateUserProfile,
+    changeUserPassword,
+    deleteAccount,
+    fetchUserOrders,
+    logout,
+    loading: contextLoading,
+    orderRefreshTrigger
+  } = useContext(AppContext);
+
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
-  // Enhanced data states with modern structure
-  const [dashboardData, setDashboardData] = useState({
-    user: {
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      email: user?.email || '',
-      phone: user?.phone || '',
-      dateOfBirth: user?.dateOfBirth || '',
-      gender: user?.gender || '',
-      profilePicture: user?.profilePicture || '',
-      preferences: {
-        favoriteRoast: '',
-        brewMethod: '',
-        subscription: false,
-        notifications: true
-      },
-      loyalty: {
-        points: 450,
-        tier: 'Gold',
-        nextTier: 'Platinum',
-        progress: 65,
-        benefits: ['Free Shipping', 'Early Access', 'Member Discounts']
-      }
-    },
-    addresses: [
-      {
-        _id: '1',
-        type: 'home',
-        name: 'Home',
-        street: '123 Coffee Street',
-        city: 'Nairobi',
-        postalCode: '00100',
-        country: 'Kenya',
-        isDefault: true,
-        instructions: 'Ring bell twice'
-      }
-    ],
-    stats: {
-      totalOrders: 12,
-      loyaltyPoints: 450,
-      loyaltyTier: 'Gold',
-      loyaltyProgress: 65,
-      favoritesCount: 8,
-      monthlySpending: 12500
-    }
-  });
+  // Combine loadings for UI
+  const isLoading = contextLoading || localLoading;
 
-  const [recentOrders, setRecentOrders] = useState([
-    {
-      _id: '1',
-      orderNumber: 'RC-2024-001',
-      createdAt: new Date().toISOString(),
-      totalAmount: 2850,
-      status: 'delivered',
-      items: [
-        { name: 'Ethiopian Yirgacheffe', quantity: 1, price: 1200 },
-        { name: 'Coffee Mug', quantity: 1, price: 650 }
-      ]
-    },
-    {
-      _id: '2',
-      orderNumber: 'RC-2024-002',
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      totalAmount: 1800,
-      status: 'processing',
-      items: [
-        { name: 'Kenya AA', quantity: 1, price: 950 }
-      ]
-    }
-  ]);
+  // Real data states
+  const [orders, setOrders] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
 
   // Form states
   const [profileForm, setProfileForm] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    phone: user?.phone || '',
-    dateOfBirth: user?.dateOfBirth || '',
-    gender: user?.gender || ''
+    firstName: '',
+    lastName: '',
+    phone: '',
+    dateOfBirth: '',
+    gender: ''
   });
 
   const [preferencesForm, setPreferencesForm] = useState({
@@ -113,89 +64,273 @@ function AccountDashboard() {
     showPassword: false
   });
 
-  // Initialize with user data
+  // Calculate stats from real data
+  const stats = React.useMemo(() => {
+    // We need to either fetch all orders for stats or rely on the pagination total
+    // For now, we'll use the pagination total and filter what we have for transit
+    return {
+      totalOrders: pagination.total || 0,
+      favoritesCount: user?.favorites?.length || 0,
+      ordersInTransit: orders.filter(o => ['pending', 'confirmed', 'processing', 'shipped'].includes(o.status)).length,
+      monthlySpending: 0 // Mock for now
+    };
+  }, [pagination.total, user?.favorites, orders]);
+
+  // Initialize form state when user loads
   useEffect(() => {
     if (user) {
-      setDashboardData(prev => ({
-        ...prev,
-        user: {
-          ...prev.user,
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-          email: user.email || '',
-          phone: user.phone || '',
-          dateOfBirth: user.dateOfBirth || '',
-          gender: user.gender || '',
-          profilePicture: user.profilePicture || ''
-        }
-      }));
-
       setProfileForm({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         phone: user.phone || '',
-        dateOfBirth: user.dateOfBirth || '',
+        dateOfBirth: (user.dateOfBirth && !isNaN(new Date(user.dateOfBirth).getTime()))
+          ? new Date(user.dateOfBirth).toISOString().split('T')[0]
+          : '',
         gender: user.gender || ''
       });
+
+      // Initialize preferences if they exist
+      if (user.preferences) {
+        setPreferencesForm(prev => ({ ...prev, ...user.preferences }));
+      }
     }
   }, [user]);
 
+  // Fetch orders when tab changes to orders or tracking
+  useEffect(() => {
+    if (user && (activeTab === 'orders' || activeTab === 'tracking' || activeTab === 'overview')) {
+      loadOrders();
+    }
+  }, [user, activeTab, orderRefreshTrigger]);
+
+  const loadOrders = async (page = 1) => {
+    setOrdersLoading(true);
+    try {
+      const data = await fetchUserOrders(page);
+      if (data && data.data) {
+        setOrders(data.data.orders);
+        setPagination(data.data.pagination);
+      }
+    } catch (error) {
+      console.error('Failed to load orders', error);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setLocalLoading(true);
+    try {
+      await updateUserProfile(profileForm);
+      setIsEditing(false);
+    } catch (error) {
+      // Error handled in context
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
+  const handlePreferencesUpdate = async () => {
+    try {
+      await updateUserProfile({ preferences: preferencesForm });
+    } catch (error) {
+      // Error handled in context
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showError('New passwords do not match');
+      return;
+    }
+
+    try {
+      await changeUserPassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '', showPassword: false });
+    } catch (error) {
+      // Error handled in context
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      setLocalLoading(true);
+      try {
+        const res = await deleteAccount();
+        // The context's deleteAccount already handles success message and logout
+        // If we reach here, it means the API was successful
+        navigate('/shop');
+      } catch (error) {
+        // Error already shown by context
+      } finally {
+        setLocalLoading(false);
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/shop');
+  };
+
   // Enhanced tab configuration with modern icons
   const tabs = [
-    { id: 'overview', label: 'Dashboard', icon: <FaRocket />, color: 'var(--accent-purple)' },
-    { id: 'profile', label: 'My Profile', icon: <FaUserCircle />, color: 'var(--accent-blue)' },
-    { id: 'orders', label: 'My Orders', icon: <FaShoppingBag />, color: 'var(--accent-green)' },
-    { id: 'addresses', label: 'Addresses', icon: <FaMapMarkerAlt />, color: 'var(--accent-orange)' },
-    { id: 'security', label: 'Security', icon: <FaShieldAlt />, color: 'var(--accent-red)' }
+    { id: 'overview', label: 'Dashboard', icon: <FaRocket />, color: '#d4af37' },
+    { id: 'orders', label: 'My Orders', icon: <FaShoppingBag />, color: '#10b981' },
+    { id: 'tracking', label: 'Track Order', icon: <FaShippingFast />, color: '#f59e0b' },
+    { id: 'profile', label: 'My Profile', icon: <FaUserCircle />, color: '#3b82f6' },
+    { id: 'security', label: 'Security', icon: <FaShieldAlt />, color: '#ef4444' }
   ];
 
   // Modern Order Card Component
-  const OrderCard = ({ order, compact = false }) => (
-    <div className={`modern-order-card ${compact ? 'compact' : ''} ${order.status}`}>
-      <div className="order-header">
-        <div className="order-meta">
-          <h4>Order #{order.orderNumber}</h4>
-          <p className="order-date">{new Date(order.createdAt).toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            month: 'short', 
-            day: 'numeric' 
-          })}</p>
+  const OrderCard = ({ order, compact = false }) => {
+    const [isTrackingOpen, setIsTrackingOpen] = useState(false);
+
+    const getProgress = (status) => {
+      const steps = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+      const index = steps.indexOf(status);
+      return ((index + 1) / steps.length) * 100;
+    };
+
+    return (
+      <div className={`modern-order-card ${compact ? 'compact' : ''} ${order.status} ${isTrackingOpen ? 'extended' : ''}`}>
+        <div className="order-header" onClick={() => !compact && setIsTrackingOpen(!isTrackingOpen)}>
+          <div className="order-meta">
+            <h4>Order #{order.orderNumber}</h4>
+            <p className="order-date">{new Date(order.createdAt).toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric'
+            })}</p>
+          </div>
+          <div className="order-amount">
+            <span className="amount">KES {order.totalAmount?.toLocaleString()}</span>
+            <span className={`status-badge ${order.status}`}>
+              {order.status === 'delivered' && <FaCheckCircle />}
+              {order.status === 'processing' && <FaClock />}
+              {order.status === 'shipped' && <FaTruck />}
+              {order.status}
+            </span>
+          </div>
         </div>
-        <div className="order-amount">
-          <span className="amount">KES {order.totalAmount?.toLocaleString()}</span>
-          <span className={`status-badge ${order.status}`}>
-            {order.status === 'delivered' && <FaCheckCircle />}
-            {order.status === 'processing' && <FaClock />}
-            {order.status === 'shipped' && <FaTruck />}
-            {order.status}
-          </span>
-        </div>
-      </div>
-      
-      {!compact && (
-        <div className="order-items-preview">
-          {order.items.slice(0, 2).map((item, index) => (
-            <div key={index} className="order-item-preview">
-              <span className="item-name">{item.quantity}x {item.name}</span>
-              <span className="item-price">KES {(item.price * item.quantity).toLocaleString()}</span>
+
+        {/* Progress Bar */}
+        {!compact && (
+          <div className="order-progress-container">
+            <div className="progress-bar-track">
+              <div
+                className="progress-bar-fill"
+                style={{ width: `${getProgress(order.status)}%` }}
+              ></div>
             </div>
-          ))}
-          {order.items.length > 2 && (
-            <div className="more-items">+{order.items.length - 2} more items</div>
+            <div className="progress-steps-labels">
+              <span>Placed</span>
+              <span>Processing</span>
+              <span>Shipped</span>
+              <span>Delivered</span>
+            </div>
+          </div>
+        )}
+
+        {(order.status === 'shipped' || order.status === 'delivered') && order.trackingNumber && compact && (
+          <div className="order-tracking">
+            <FaTruck className="tracking-icon" />
+            <div className="tracking-info">
+              <span className="label">Tracking Number:</span>
+              <span className="number">{order.trackingNumber}</span>
+            </div>
+          </div>
+        )}
+
+        {isTrackingOpen && !compact && (
+          <div className="order-tracking-details">
+            <div className="tracking-header">
+              <h5><FaShippingFast /> Tracking Journey</h5>
+              {order.trackingNumber && (
+                <div className="tracking-id-badge">
+                  <span>ID:</span> {order.trackingNumber}
+                </div>
+              )}
+            </div>
+
+            <div className="vertical-tracking-timeline">
+              {order.trackingHistory && order.trackingHistory.length > 0 ? (
+                order.trackingHistory.slice().reverse().map((event, index) => (
+                  <div key={index} className="timeline-milestone">
+                    <div className="milestone-indicator">
+                      <div className="milestone-dot"></div>
+                      <div className="milestone-line"></div>
+                    </div>
+                    <div className="milestone-content">
+                      <div className="milestone-meta">
+                        <span className="milestone-status">{event.status}</span>
+                        <span className="milestone-date">
+                          {new Date(event.timestamp).toLocaleDateString()} {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      {event.location && (
+                        <div className="milestone-location">
+                          <strong>Location:</strong> {event.location}
+                        </div>
+                      )}
+                      <div className="milestone-message">{event.message}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="timeline-milestone active">
+                  <div className="milestone-indicator">
+                    <div className="milestone-dot"></div>
+                    <div className="milestone-line"></div>
+                  </div>
+                  <div className="milestone-content">
+                    <div className="milestone-meta">
+                      <span className="milestone-status">Order Placed</span>
+                      <span className="milestone-date">{new Date(order.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div className="milestone-message">We've received your order and are getting it ready.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!compact && (
+          <div className="order-items-preview">
+            {order.items.slice(0, 2).map((item, index) => (
+              <div key={index} className="order-item-preview">
+                <span className="item-name">{item.quantity}x {item.name}</span>
+                <span className="item-price">KES {(item.price * item.quantity).toLocaleString()}</span>
+              </div>
+            ))}
+            {order.items.length > 2 && (
+              <div className="more-items">+{order.items.length - 2} more items</div>
+            )}
+          </div>
+        )}
+
+        <div className="order-actions">
+          <button
+            className="btn-outline btn-sm"
+            onClick={() => setIsTrackingOpen(!isTrackingOpen)}
+          >
+            {isTrackingOpen ? 'Close Tracking' : 'Track Order'}
+          </button>
+          {order.status === 'delivered' && (
+            <button className="btn-primary btn-sm">
+              <FaShoppingCart /> Reorder
+            </button>
           )}
         </div>
-      )}
-      
-      <div className="order-actions">
-        <button className="btn-outline btn-sm">View Details</button>
-        {order.status === 'delivered' && (
-          <button className="btn-primary btn-sm">
-            <FaShoppingCart /> Reorder
-          </button>
-        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   // Modern Stat Card Component
   const StatCard = ({ icon, value, label, trend, color }) => (
@@ -218,15 +353,12 @@ function AccountDashboard() {
       <div className="welcome-banner">
         <div className="welcome-content">
           <div className="welcome-text">
-            <h1>Welcome back, {dashboardData.user.firstName}! 👋</h1>
+            <h1>Welcome back, {user?.firstName}! 👋</h1>
             <p>Your coffee journey continues. Ready for your next brew?</p>
           </div>
           <div className="welcome-actions">
             <button className="btn-primary">
               <FaShoppingCart /> Order Coffee
-            </button>
-            <button className="btn-outline">
-              <FaGift /> View Rewards
             </button>
           </div>
         </div>
@@ -237,33 +369,23 @@ function AccountDashboard() {
 
       {/* Quick Stats */}
       <div className="quick-stats-grid">
-        <StatCard 
+        <StatCard
           icon={<FaShoppingBag />}
-          value={dashboardData.stats.totalOrders}
+          value={stats.totalOrders}
           label="Total Orders"
-          trend="+2 this month"
-          color="var(--accent-blue)"
+          color="#3b82f6"
         />
-        <StatCard 
-          icon={<FaStar />}
-          value={dashboardData.stats.loyaltyPoints}
-          label="Loyalty Points"
-          trend="45 to next tier"
-          color="var(--accent-gold)"
+        <StatCard
+          icon={<FaTruck />}
+          value={stats.ordersInTransit}
+          label="In Transit"
+          color="#d4af37"
         />
-        <StatCard 
+        <StatCard
           icon={<FaHeart />}
-          value={dashboardData.stats.favoritesCount}
+          value={stats.favoritesCount}
           label="Favorites"
-          trend="+1 recently"
-          color="var(--accent-pink)"
-        />
-        <StatCard 
-          icon={<FaCoffee />}
-          value={`KES ${dashboardData.stats.monthlySpending?.toLocaleString()}`}
-          label="Monthly Spend"
-          trend="On track"
-          color="var(--accent-green)"
+          color="#ef4444"
         />
       </div>
 
@@ -272,97 +394,52 @@ function AccountDashboard() {
         <div className="content-card">
           <div className="card-header">
             <h3>Recent Orders</h3>
-            <button 
+            <button
               className="btn-text"
               onClick={() => setActiveTab('orders')}
             >
               View All <FaArrowRight />
             </button>
           </div>
-          <div className="orders-list-compact">
-            {recentOrders.map(order => (
-              <OrderCard key={order._id} order={order} compact />
-            ))}
-          </div>
-        </div>
-
-        {/* Loyalty Program */}
-        <div className="content-card loyalty-card">
-          <div className="card-header">
-            <h3>Loyalty Status</h3>
-            <div className="tier-badge premium">
-              <FaCrown /> {dashboardData.user.loyalty.tier}
-            </div>
-          </div>
-          <div className="loyalty-progress">
-            <div className="progress-info">
-              <span>{dashboardData.user.loyalty.points} points</span>
-              <span>Next: {dashboardData.user.loyalty.nextTier}</span>
-            </div>
-            <div className="progress-bar">
-              <div 
-                className="progress-fill"
-                style={{ width: `${dashboardData.user.loyalty.progress}%` }}
-              ></div>
-            </div>
-            <div className="loyalty-benefits">
-              {dashboardData.user.loyalty.benefits.map((benefit, index) => (
-                <div key={index} className="benefit-item">
-                  <FaAward />
-                  <span>{benefit}</span>
-                </div>
+          {ordersLoading ? (
+            <div className="loading-spinner"></div>
+          ) : orders.length > 0 ? (
+            <div className="orders-list-compact">
+              {orders.slice(0, 3).map(order => (
+                <OrderCard key={order._id || order.id} order={order} compact />
               ))}
             </div>
-          </div>
+          ) : (
+            <p className="no-data">No recent orders found.</p>
+          )}
         </div>
 
         {/* Quick Actions */}
         <div className="content-card quick-actions-card">
-          <h3>Quick Actions</h3>
+          <h3>Quick Settings</h3>
           <div className="quick-actions-grid">
-            <button className="quick-action">
+            <button className="quick-action" onClick={() => setActiveTab('profile')}>
               <div className="action-icon">
                 <FaEdit />
               </div>
               <span>Edit Profile</span>
             </button>
-            <button className="quick-action">
+            <button className="quick-action" onClick={() => setActiveTab('security')}>
               <div className="action-icon">
-                <FaMapMarkerAlt />
+                <FaShieldAlt />
               </div>
-              <span>Add Address</span>
+              <span>Security</span>
             </button>
-            <button className="quick-action">
+            <button className="quick-action" onClick={() => navigate('/shop')}>
               <div className="action-icon">
-                <FaBell />
+                <FaShoppingCart />
               </div>
-              <span>Notifications</span>
-            </button>
-            <button className="quick-action">
-              <div className="action-icon">
-                <FaHeart />
-              </div>
-              <span>Favorites</span>
+              <span>Shop</span>
             </button>
           </div>
         </div>
-
-        {/* Coffee Recommendations */}
-        <div className="content-card recommendations-card">
-          <h3>Just For You</h3>
-          <div className="recommendations">
-            <div className="recommendation-item">
-              <div className="rec-image"></div>
-              <div className="rec-info">
-                <h4>Based on your taste</h4>
-                <p>Try our new Ethiopian blend</p>
-                <button className="btn-outline btn-sm">Discover</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 
   // Enhanced Profile Tab
@@ -371,26 +448,20 @@ function AccountDashboard() {
       <div className="profile-header">
         <div className="profile-avatar-section">
           <div className="avatar-wrapper">
-            {dashboardData.user.profilePicture ? (
-              <img src={dashboardData.user.profilePicture} alt="Profile" />
+            {user?.profilePicture ? (
+              <img src={user.profilePicture} alt="Profile" />
             ) : (
               <div className="avatar-placeholder">
                 <FaUser />
               </div>
             )}
-            <button className="edit-avatar-btn">
-              <FaEdit />
-            </button>
           </div>
           <div className="profile-info">
-            <h2>{dashboardData.user.firstName} {dashboardData.user.lastName}</h2>
-            <p>{dashboardData.user.email}</p>
-            <div className="member-since">
-              Member since {new Date().getFullYear()}
-            </div>
+            <h2>{user?.firstName} {user?.lastName}</h2>
+            <p>{user?.email}</p>
           </div>
         </div>
-        <button 
+        <button
           className={`edit-toggle-btn ${isEditing ? 'editing' : ''}`}
           onClick={() => setIsEditing(!isEditing)}
         >
@@ -406,7 +477,7 @@ function AccountDashboard() {
         {/* Personal Information */}
         <div className="content-card">
           <h3>Personal Information</h3>
-          <form className="modern-form">
+          <form className="modern-form" onSubmit={handleProfileUpdate}>
             <div className="form-grid-2">
               <div className="form-group">
                 <label>First Name</label>
@@ -432,11 +503,10 @@ function AccountDashboard() {
                 <label>Email</label>
                 <input
                   type="email"
-                  value={dashboardData.user.email}
+                  value={user?.email}
                   disabled
                   className="disabled"
                 />
-                <small>Contact support to change email</small>
               </div>
               <div className="form-group">
                 <label>Phone</label>
@@ -451,58 +521,177 @@ function AccountDashboard() {
             </div>
             {isEditing && (
               <div className="form-actions">
-                <button type="submit" className="btn-primary">
-                  Save Changes
+                <button type="submit" className="btn-primary" disabled={isLoading}>
+                  {isLoading ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             )}
           </form>
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Coffee Preferences */}
-        <div className="content-card">
-          <h3>Coffee Preferences</h3>
-          <div className="preferences-grid">
-            <div className="preference-item">
-              <label>Favorite Roast Level</label>
-              <select
-                value={preferencesForm.favoriteRoast}
-                onChange={(e) => setPreferencesForm(prev => ({ ...prev, favoriteRoast: e.target.value }))}
-              >
-                <option value="light">Light Roast</option>
-                <option value="medium">Medium Roast</option>
-                <option value="dark">Dark Roast</option>
-              </select>
-            </div>
-            <div className="preference-item">
-              <label>Brew Method</label>
-              <select
-                value={preferencesForm.brewMethod}
-                onChange={(e) => setPreferencesForm(prev => ({ ...prev, brewMethod: e.target.value }))}
-              >
-                <option value="espresso">Espresso</option>
-                <option value="pour-over">Pour Over</option>
-                <option value="french-press">French Press</option>
-                <option value="aeropress">AeroPress</option>
-              </select>
-            </div>
+  // Orders Tab
+  const OrdersTab = () => (
+    <div className="modern-dashboard-tab">
+      <div className="tab-header">
+        <h2>My Orders</h2>
+        <div className="tab-actions">
+          <div className="search-bar">
+            <FaSearch />
+            <input type="text" placeholder="Search orders..." />
           </div>
-          <div className="preference-actions">
-            <button className="btn-primary" onClick={() => showSuccess('Preferences updated!')}>
-              Save Preferences
-            </button>
+        </div>
+      </div>
+
+      {ordersLoading ? (
+        <div className="loading-spinner"></div>
+      ) : orders.length > 0 ? (
+        <div className="orders-list">
+          {orders.map(order => (
+            <OrderCard key={order._id || order.id} order={order} />
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <FaBox />
+          <h3>No orders yet</h3>
+          <p>Time to discover your favorite coffee!</p>
+          <button className="btn-primary" onClick={() => navigate('/shop')}>
+            Start Shopping
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // Security Tab
+  const SecurityTab = () => (
+    <div className="modern-dashboard-tab">
+      <div className="tab-header">
+        <h2>Security Settings</h2>
+      </div>
+
+      <div className="security-grid">
+        <div className="content-card">
+          <h3>Change Password</h3>
+          <form className="modern-form" onSubmit={handlePasswordChange}>
+            <div className="form-group">
+              <label>Current Password</label>
+              <div className="password-input">
+                <input
+                  type={passwordForm.showPassword ? "text" : "password"}
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>New Password</label>
+              <div className="password-input">
+                <input
+                  type={passwordForm.showPassword ? "text" : "password"}
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Confirm New Password</label>
+              <div className="password-input">
+                <input
+                  type={passwordForm.showPassword ? "text" : "password"}
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="form-checkbox">
+              <input
+                type="checkbox"
+                id="showPassword"
+                checked={passwordForm.showPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, showPassword: e.target.checked }))}
+              />
+              <label htmlFor="showPassword">Show Passwords</label>
+            </div>
+            <div className="form-actions">
+              <button type="submit" className="btn-primary" disabled={isLoading}>
+                {isLoading ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="content-card">
+          <h3>Account Management</h3>
+          <div className="danger-zone">
+            <div className="danger-item">
+              <div className="danger-info">
+                <h4>Delete Account</h4>
+                <p>Permanently delete your account and all data</p>
+              </div>
+              <button
+                className="btn-danger btn-sm"
+                onClick={handleDeleteAccount}
+              >
+                Delete Account
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 
+  // Tracking Tab
+  const TrackingTab = () => {
+    const activeOrders = orders.filter(o => ['pending', 'confirmed', 'processing', 'shipped'].includes(o.status));
+
+    return (
+      <div className="modern-dashboard-tab">
+        <div className="tab-header">
+          <h2>Order Tracking</h2>
+          <p>Real-time updates on your coffee shipments</p>
+        </div>
+
+        <div className="tracking-overview-grid">
+          <div className="content-card in-transit-card">
+            <div className="card-header">
+              <h3>Active Deliveries ({activeOrders.length})</h3>
+              <div className="live-indicator">
+                <span className="dot"></span>
+                Live Updates
+              </div>
+            </div>
+            {activeOrders.length > 0 ? (
+              <div className="orders-list">
+                {activeOrders.map(order => (
+                  <OrderCard key={order._id || order.id} order={order} />
+                ))}
+              </div>
+            ) : (
+              <div className="empty-tracking">
+                <FaBox className="empty-icon" />
+                <p>No active deliveries at the moment.</p>
+                <button className="btn-outline" onClick={() => navigate('/shop')}>Shop Now</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render function for tabs
   const renderTabContent = () => {
-    switch(activeTab) {
+    switch (activeTab) {
       case 'overview': return <OverviewTab />;
       case 'profile': return <ProfileTab />;
-      // Add other tabs here...
+      case 'orders': return <OrdersTab />;
+      case 'tracking': return <TrackingTab />;
+      case 'security': return <SecurityTab />;
       default: return <OverviewTab />;
     }
   };
@@ -524,25 +713,30 @@ function AccountDashboard() {
 
   return (
     <div className="modern-account-dashboard">
+      <button
+        className="mobile-menu-toggle"
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        {isSidebarOpen ? <FaTimes /> : <FaBars />}
+      </button>
+
       <div className="modern-dashboard-container">
         {/* Modern Sidebar */}
-        <div className="modern-sidebar">
+        <div className={`modern-sidebar ${isSidebarOpen ? 'open' : ''}`}>
           <div className="sidebar-header">
             <div className="user-card-modern">
               <div className="avatar-modern">
-                {dashboardData.user.profilePicture ? (
-                  <img src={dashboardData.user.profilePicture} alt="Profile" />
+                {user?.profilePicture ? (
+                  <img src={user.profilePicture} alt="Profile" />
                 ) : (
                   <FaUserCircle />
                 )}
               </div>
               <div className="user-info-modern">
-                <h3>{dashboardData.user.firstName} {dashboardData.user.lastName}</h3>
-                <p>{dashboardData.user.email}</p>
+                <h3>{user?.firstName} {user?.lastName}</h3>
+                <p>{user?.email}</p>
                 <div className="user-stats">
-                  <span className="points-badge">
-                    <FaStar /> {dashboardData.user.loyalty.points} pts
-                  </span>
+                  {/* Stats removed */}
                 </div>
               </div>
             </div>
@@ -553,7 +747,10 @@ function AccountDashboard() {
               <button
                 key={tab.id}
                 className={`modern-nav-item ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setIsSidebarOpen(false);
+                }}
                 style={{ '--active-color': tab.color }}
               >
                 <span className="nav-icon-modern">{tab.icon}</span>
@@ -561,6 +758,14 @@ function AccountDashboard() {
                 <div className="active-indicator"></div>
               </button>
             ))}
+            <button
+              className="modern-nav-item logout-btn"
+              onClick={handleLogout}
+              style={{ '--active-color': 'var(--accent-red)', marginTop: 'auto' }}
+            >
+              <span className="nav-icon-modern"><FaSignOutAlt /></span>
+              <span className="nav-label">Logout</span>
+            </button>
           </nav>
         </div>
 

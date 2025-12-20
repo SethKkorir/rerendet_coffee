@@ -1,11 +1,11 @@
 // src/components/Admin/UsersManagement.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { FaSearch, FaUser, FaEnvelope, FaPhone, FaCalendar, FaSync } from 'react-icons/fa';
+import { FaSearch, FaUser, FaEnvelope, FaPhone, FaCalendar, FaSync, FaTimes, FaShoppingBag, FaMapMarkerAlt, FaTrash, FaUserTag } from 'react-icons/fa';
 import './UsersManagement.css';
 
 const UsersManagement = () => {
-  const { showAlert, fetchAdminUsers } = useContext(AppContext);
+  const { showAlert, fetchAdminUsers, updateUserRole, deleteUser, token } = useContext(AppContext);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -17,13 +17,15 @@ const UsersManagement = () => {
     total: 0,
     pages: 0
   });
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserModal, setShowUserModal] = useState(false);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
+
       const response = await fetchAdminUsers(filters);
-      
+
       if (response.success) {
         setUsers(response.data.users);
         setPagination(response.data.pagination);
@@ -33,6 +35,38 @@ const UsersManagement = () => {
       showAlert('Failed to load users', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      const response = await updateUserRole(userId, newRole);
+      if (response.success) {
+        fetchUsers();
+        if (selectedUser && selectedUser._id === userId) {
+          setSelectedUser({ ...selectedUser, role: newRole });
+        }
+      }
+    } catch (error) {
+      console.error('Role update error:', error);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await deleteUser(userId);
+      if (response.success) {
+        fetchUsers();
+        if (selectedUser && selectedUser._id === userId) {
+          setShowUserModal(false);
+        }
+      }
+    } catch (error) {
+      console.error('Delete user error:', error);
     }
   };
 
@@ -87,11 +121,21 @@ const UsersManagement = () => {
       </td>
       <td>
         <div className="user-actions">
-          <button 
+          <button
             className="btn-view"
-            onClick={() => showAlert('View user details feature coming soon', 'info')}
+            onClick={() => {
+              setSelectedUser(user);
+              setShowUserModal(true);
+            }}
           >
-            View Details
+            Details
+          </button>
+          <button
+            className="btn-delete"
+            onClick={() => handleDeleteUser(user._id)}
+            title="Delete User"
+          >
+            <FaTrash />
           </button>
         </div>
       </td>
@@ -106,7 +150,7 @@ const UsersManagement = () => {
           <p>Manage your customer accounts and profiles</p>
         </div>
         <div className="header-actions">
-          <button 
+          <button
             className="btn-refresh"
             onClick={fetchUsers}
             disabled={loading}
@@ -157,7 +201,7 @@ const UsersManagement = () => {
                       <FaUser className="empty-icon" />
                       <p>No users found</p>
                       {filters.search && (
-                        <button 
+                        <button
                           className="btn-clear-search"
                           onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
                         >
@@ -184,11 +228,11 @@ const UsersManagement = () => {
                 >
                   Previous
                 </button>
-                
+
                 <div className="pagination-info">
                   Page {filters.page} of {pagination.pages}
                 </div>
-                
+
                 <button
                   onClick={() => handlePageChange(filters.page + 1)}
                   disabled={filters.page === pagination.pages}
@@ -200,6 +244,81 @@ const UsersManagement = () => {
             )}
           </>
         )}
+      </div>
+
+      {/* User Details Modal */}
+      {showUserModal && selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          onRoleChange={handleRoleChange}
+          onDelete={handleDeleteUser}
+          onClose={() => {
+            setShowUserModal(false);
+            setSelectedUser(null);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// User Details Modal Component
+const UserDetailModal = ({ user, onRoleChange, onDelete, onClose }) => {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>User Details</h3>
+          <button className="close-modal" onClick={onClose}><FaTimes /></button>
+        </div>
+
+        <div className="user-profile-header">
+          <div className="large-avatar">
+            <FaUser />
+          </div>
+          <div className="profile-main-info">
+            <h2>{user.firstName} {user.lastName}</h2>
+            <span className={`status-badge ${user.userType}`}>{user.userType}</span>
+          </div>
+        </div>
+
+        <div className="user-details-grid">
+          <div className="detail-section">
+            <h4><FaEnvelope /> Contact Info</h4>
+            <p><strong>Email:</strong> {user.email}</p>
+            <p><strong>Phone:</strong> {user.phone || 'Not provided'}</p>
+          </div>
+
+          <div className="detail-section">
+            <h4><FaCalendar /> Account Info</h4>
+            <p><strong>Joined:</strong> {new Date(user.createdAt).toLocaleDateString()}</p>
+            <p><strong>Status:</strong> {user.isVerified ? 'Verified' : 'Unverified'}</p>
+            <p><strong>ID:</strong> {user._id}</p>
+          </div>
+
+          <div className="detail-section">
+            <h4><FaUserTag /> System Role</h4>
+            <div className="role-selector">
+              <select
+                value={user.role || 'customer'}
+                onChange={(e) => onRoleChange(user._id, e.target.value)}
+                className="modal-select"
+              >
+                <option value="customer">Customer</option>
+                <option value="admin">Admin</option>
+                <option value="super-admin">Super Admin</option>
+              </select>
+            </div>
+            <p className="role-warning">Changing a role grants/revokes administrative access.</p>
+          </div>
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn-outline danger" onClick={() => onDelete(user._id)}>
+            <FaTrash /> Delete Account
+          </button>
+          <button className="btn-primary" onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   );

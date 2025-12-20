@@ -144,50 +144,11 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+  0% {
+    transform: rotate(0deg);
+  }
 
-.dev-helper {
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.credentials-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.credentials-card h4 {
-  margin: 0 0 12px 0;
-  color: #374151;
-  font-size: 0.9rem;
-}
-
-.credentials {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.credential-item {
-  display: flex;
-  gap: 8px;
-  font-size: 0.8rem;
-}
-
-.credential-item strong {
-  color: #1f2937;
-  min-width: 60px;
-}
-
-.security-note {
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin: 0;
-  font-style: italic;
+  100% {
+    transform: rotate(360deg);
+  }
 }

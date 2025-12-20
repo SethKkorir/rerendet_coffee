@@ -1,12 +1,12 @@
 // src/components/Footer/Footer.jsx
 import React from 'react';
-import { 
-  FaFacebookF, 
-  FaInstagram, 
-  FaTwitter, 
-  FaYoutube, 
-  FaCcVisa, 
-  FaCcMastercard, 
+import {
+  FaFacebookF,
+  FaInstagram,
+  FaTwitter,
+  FaYoutube,
+  FaCcVisa,
+  FaCcMastercard,
   FaCcPaypal,
   FaMobileAlt
 } from 'react-icons/fa';
@@ -19,7 +19,7 @@ const Footer = () => {
         <div className="footer-grid">
           <div className="footer-section">
             <div className="footer-logo">
-              <div className="logo">Rerendet Coffee</div>
+              <div className="logo">Rerendet-Coffee</div>
             </div>
             <p>Bringing the finest coffee from our farm to your cup since 1998.</p>
             <div className="footer-social">
@@ -29,7 +29,7 @@ const Footer = () => {
               <a href="#"><FaYoutube /></a>
             </div>
           </div>
-          
+
           <div className="footer-section">
             <h3>Quick Links</h3>
             <ul className="footer-links">
@@ -40,7 +40,7 @@ const Footer = () => {
               <li><a href="#about">About Us</a></li>
             </ul>
           </div>
-          
+
           <div className="footer-section">
             <h3>Help & Info</h3>
             <ul className="footer-links">
@@ -51,7 +51,7 @@ const Footer = () => {
               <li><a href="#contact">Contact Us</a></li>
             </ul>
           </div>
-          
+
           <div className="footer-section">
             <h3>Shop Hours</h3>
             <ul className="hours-list">
@@ -67,9 +67,9 @@ const Footer = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="footer-bottom">
-          <p>&copy; 2025 Rerendet Coffee Farm. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Rerendet-Coffee. All rights reserved.</p>
         </div>
       </div>
     </footer>

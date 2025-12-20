@@ -32,7 +32,8 @@
 }
 
 .header--scrolled {
-  background: rgba(var(--background), 0.95);
+  background: var(--background);
+  opacity: 0.98;
   backdrop-filter: blur(10px);
   box-shadow: var(--shadow);
   border-bottom: 1px solid var(--border);
@@ -71,8 +72,20 @@
 .header__logo-text {
   font-family: 'Playfair Display', serif;
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: #ffffff;
+  /* Initial white */
+  transition: color 0.3s ease;
+}
+
+.header--scrolled .header__logo-text {
   color: var(--foreground);
+}
+
+.header__logo-img {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
 }
 
 /* Desktop Navigation */
@@ -90,17 +103,26 @@
 
 .header__nav-link {
   font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--muted-foreground);
+  font-weight: 600;
+  color: #ffffff;
+  /* Default to white for visibility on hero */
   background: none;
   border: none;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: all 0.2s;
   padding: 0;
+  opacity: 0.9;
 }
 
-.header__nav-link:hover {
-  color: var(--foreground);
+.header--scrolled .header__nav-link {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.header__nav-link:hover,
+.header--scrolled .header__nav-link:hover {
+  color: var(--primary);
+  opacity: 1;
 }
 
 /* Actions */
@@ -122,6 +144,10 @@
   transition: all 0.3s ease;
   background: transparent;
   border: none;
+  color: #ffffff;
+}
+
+.header--scrolled .theme-toggle {
   color: var(--foreground);
 }
 
@@ -141,6 +167,10 @@
   transition: all 0.3s ease;
   background: transparent;
   border: none;
+  color: #ffffff;
+}
+
+.header--scrolled .header__account {
   color: var(--foreground);
 }
 
@@ -164,8 +194,12 @@
   transition: all 0.3s ease;
   background: transparent;
   border: none;
-  color: var(--foreground);
+  color: #ffffff;
   position: relative;
+}
+
+.header--scrolled .header__cart {
+  color: var(--foreground);
 }
 
 .header__cart:hover {
@@ -201,6 +235,10 @@
   transition: all 0.3s ease;
   background: transparent;
   border: none;
+  color: #ffffff;
+}
+
+.header--scrolled .header__mobile-trigger {
   color: var(--foreground);
 }
 

@@ -22,11 +22,14 @@ import ProductsManagement from './components/Admin/ProductsManagement';
 import UsersManagement from './components/Admin/UsersManagement';
 import Analytics from './components/Admin/Analytics';
 import Settings from './components/Admin/Settings';
+import ContactsManagement from './components/Admin/ContactsManagement';
 import AdminLogin from './components/Admin/AdminLogin';
 import Checkout from './components/Checkout/Checkout';
+import OrderConfirmation from './components/OrderConfirmation/OrderConfirmation';
 import AccountDashboard from './components/Account/AccountDashboard';
 import Orders from './pages/Orders';
 import OrderReceipt from './components/Checkout/OrderReceipt';
+import OrderTracking from './components/OrderTracking/OrderTracking';
 import AdminOrders from './components/Admin/Orders';
 import Profile from './components/Profile/Profile';
 import AOS from 'aos';
@@ -38,11 +41,11 @@ function App() {
 
   useEffect(() => {
     // Initialize AOS animations
-    AOS.init({ 
-      duration: 800, 
-      once: true, 
+    AOS.init({
+      duration: 800,
+      once: true,
       easing: 'ease-in-out',
-      offset: 100 
+      offset: 100
     });
 
     // Custom scroll animations
@@ -59,7 +62,7 @@ function App() {
 
     // Add scroll listener
     window.addEventListener('scroll', handleScroll);
-    
+
     // Initial check
     handleScroll();
 
@@ -78,7 +81,7 @@ function App() {
       <div className="App">
         {/* Don't show navbar on admin routes */}
         {!isAdminRoute && <Navbar />}
-        
+
         {/* Main Routes */}
         <Routes>
           {/* Home Page with all sections */}
@@ -99,17 +102,19 @@ function App() {
               </>
             }
           />
-          
+
           {/* Redirect old auth routes to home */}
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/signup" element={<Navigate to="/" replace />} />
           <Route path="/register" element={<Navigate to="/" replace />} />
-          
+
           {/* Checkout & Orders */}
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
+          <Route path="/order-tracking/:id" element={<OrderTracking />} />
           <Route path="/orders/:id" element={<OrderReceipt />} />
           <Route path="/orders" element={<Orders />} />
-          
+
           {/* User Account Routes */}
           <Route path="/account" element={<AccountDashboard />} />
           <Route path="/profile" element={<Profile />} />
@@ -127,6 +132,7 @@ function App() {
                     <Route path="/orders-view" element={<AdminOrders />} />
                     <Route path="/products" element={<ProductsManagement />} />
                     <Route path="/users" element={<UsersManagement />} />
+                    <Route path="/contacts" element={<ContactsManagement />} />
                     <Route path="/analytics" element={<Analytics />} />
                     <Route path="/settings" element={<Settings />} />
                   </Routes>

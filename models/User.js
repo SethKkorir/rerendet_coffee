@@ -99,32 +99,50 @@ const userSchema = new mongoose.Schema({
   // Audit and security
   lastLoginAt: Date,
   lastActivityAt: Date,
-  tokenVersion: { type: Number, default: 0 }
+  tokenVersion: { type: Number, default: 0 },
+
+  // Shopping Cart Persistence
+  cart: [
+    {
+      product: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product'
+      },
+      quantity: {
+        type: Number,
+        default: 1
+      },
+      size: {
+        type: String,
+        default: '250g'
+      }
+    }
+  ]
 }, {
   timestamps: true
 });
 
 // Virtuals
-userSchema.virtual('isLocked').get(function() {
+userSchema.virtual('isLocked').get(function () {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
-userSchema.virtual('fullName').get(function() {
+userSchema.virtual('fullName').get(function () {
   return `${this.firstName} ${this.lastName}`;
 });
 
 // Pre-save middleware
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
-    
+
     if (this.isModified('password') && !this.isNew) {
       this.passwordChangedAt = Date.now();
     }
-    
+
     next();
   } catch (error) {
     next(error);
@@ -132,18 +150,18 @@ userSchema.pre('save', async function(next) {
 });
 
 // Methods
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-userSchema.methods.generateVerificationCode = function() {
+userSchema.methods.generateVerificationCode = function () {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   this.verificationCode = code;
   this.verificationCodeExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
   return code;
 };
 
-userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
+userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   if (this.passwordChangedAt) {
     const changedTimestamp = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
     return JWTTimestamp < changedTimestamp;
@@ -151,7 +169,7 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
   return false;
 };
 
-userSchema.methods.toJSON = function() {
+userSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.password;
   delete user.verificationCode;

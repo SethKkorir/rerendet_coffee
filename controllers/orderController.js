@@ -1,10 +1,13 @@
-// controllers/orderController.js - ADD MISSING IMPORT
+// controllers/orderController.js - ENHANCED WITH SECURITY
 import asyncHandler from 'express-async-handler';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import User from '../models/User.js';
 import { calculateShipping } from '../utils/shippingCalculator.js';
 import mongoose from 'mongoose';
+import { v4 as uuidv4 } from 'uuid';
+import { sanitizeObject, sanitizeEmail, sanitizePhone, sanitizeAmount } from '../utils/inputSanitizer.js';
+import { sendEmail } from '../utils/emailService.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -12,16 +15,17 @@ import mongoose from 'mongoose';
 const createOrder = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   try {
-    const { 
-      shippingAddress, 
-      paymentMethod, 
-      items, 
+    const {
+      shippingAddress,
+      paymentMethod,
+      items,
       subtotal,
       shippingCost,
+      tax,
       totalAmount,
-      notes 
+      notes
     } = req.body;
 
     const userId = req.user._id;
@@ -29,8 +33,14 @@ const createOrder = asyncHandler(async (req, res) => {
     console.log('🛒 Creating order for user:', userId);
     console.log('📦 Order items:', items?.length);
 
+    // ✅ SECURITY: Sanitize shipping address to prevent XSS
+    const sanitizedAddress = sanitizeObject(shippingAddress);
+    sanitizedAddress.email = sanitizeEmail(shippingAddress.email);
+    sanitizedAddress.phone = sanitizePhone(shippingAddress.phone);
+
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
+      console.warn('⚠️ No items in order:', items);
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
@@ -39,7 +49,8 @@ const createOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    if (!shippingAddress || !paymentMethod) {
+    if (!sanitizedAddress || !paymentMethod) {
+      console.warn('⚠️ Missing address or payment method:', { hasAddress: !!sanitizedAddress, paymentMethod });
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
@@ -48,10 +59,20 @@ const createOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // Generate order number manually
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    const orderNumber = `ORD-${timestamp}-${random}`;
+    if (!sanitizedAddress.email || !sanitizedAddress.phone) {
+      console.warn('⚠️ Missing email or phone:', { email: sanitizedAddress.email, phone: sanitizedAddress.phone });
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'Valid email and phone number are required'
+      });
+    }
+
+    // ✅ SECURITY: Generate unique order number with UUID
+    const uuid = uuidv4().split('-')[0].toUpperCase();
+    const timestamp = Date.now().toString().slice(-8);
+    const orderNumber = `ORD-${timestamp}-${uuid}`;
 
     // Process order items and validate stock
     let calculatedSubtotal = 0;
@@ -61,6 +82,7 @@ const createOrder = asyncHandler(async (req, res) => {
     for (const item of items) {
       // Validate item structure
       if (!item.product || !item.name || !item.price || !item.quantity || !item.size) {
+        console.warn('⚠️ Invalid item data:', item);
         await session.abortTransaction();
         session.endSession();
         return res.status(400).json({
@@ -70,8 +92,9 @@ const createOrder = asyncHandler(async (req, res) => {
       }
 
       const product = await Product.findById(item.product).session(session);
-      
+
       if (!product) {
+        console.warn('⚠️ Product not found:', { id: item.product, name: item.name });
         await session.abortTransaction();
         session.endSession();
         return res.status(400).json({
@@ -82,6 +105,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
       // Check stock availability
       if (product.inventory.stock < item.quantity) {
+        console.warn('⚠️ Stock failure:', { product: product.name, available: product.inventory.stock, requested: item.quantity });
         await session.abortTransaction();
         session.endSession();
         return res.status(400).json({
@@ -90,7 +114,7 @@ const createOrder = asyncHandler(async (req, res) => {
         });
       }
 
-      const itemPrice = parseFloat(item.price);
+      const itemPrice = parseFloat(product.sizes.find(s => s.size === item.size)?.price || product.price || item.price);
       const itemQuantity = parseInt(item.quantity);
       const itemTotal = itemPrice * itemQuantity;
       calculatedSubtotal += itemTotal;
@@ -112,14 +136,39 @@ const createOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // Calculate final amounts
-    const finalSubtotal = calculatedSubtotal > 0 ? calculatedSubtotal : (parseFloat(subtotal) || 0);
-    const finalShippingCost = parseFloat(shippingCost) || 0;
-    const finalTotal = parseFloat(totalAmount) || (finalSubtotal + finalShippingCost);
+    // ✅ SECURITY: Calculate final amounts and validate against client-provided total
+    const finalSubtotal = sanitizeAmount(calculatedSubtotal);
+    const finalShippingCost = sanitizeAmount(shippingCost);
+    const finalTax = sanitizeAmount(finalSubtotal * 0.16); // 16% VAT
+    const calculatedTotal = sanitizeAmount(finalSubtotal + finalShippingCost + finalTax);
+    const clientTotal = sanitizeAmount(totalAmount);
 
-    console.log('💰 Order amounts:', {
+    console.log('💰 Validating order amounts:', {
+      itemsSubtotal: calculatedSubtotal,
+      shipping: finalShippingCost,
+      tax: finalTax,
+      total: calculatedTotal
+    });
+
+    // Prevent price manipulation - verify client total matches server calculation
+    // Allow small floating point differences (0.01)
+    if (Math.abs(calculatedTotal - clientTotal) > 1.0) { // Increased tolerance to 1.0 for rounding issues, but still strict 
+      await session.abortTransaction();
+      session.endSession();
+      console.warn(`⚠️ Price manipulation attempt detected: Client=${clientTotal}, Calculated=${calculatedTotal} (Subtotal=${finalSubtotal}, Shipping=${finalShippingCost}, Tax=${finalTax})`);
+      return res.status(400).json({
+        success: false,
+        message: 'Order amount validation failed. Please refresh your cart and try again.',
+        details: process.env.NODE_ENV === 'development' ? { clientTotal, calculatedTotal } : undefined
+      });
+    }
+
+    const finalTotal = calculatedTotal;
+
+    console.log('✅ Order amounts validated:', {
       subtotal: finalSubtotal,
       shipping: finalShippingCost,
+      tax: finalTax,
       total: finalTotal
     });
 
@@ -129,23 +178,31 @@ const createOrder = asyncHandler(async (req, res) => {
       user: userId,
       items: orderItems,
       shippingAddress: {
-        firstName: shippingAddress.firstName,
-        lastName: shippingAddress.lastName,
-        email: shippingAddress.email,
-        phone: shippingAddress.phone,
-        address: shippingAddress.address,
-        city: shippingAddress.city,
-        county: shippingAddress.county,
-        country: shippingAddress.country || 'Kenya',
-        postalCode: shippingAddress.postalCode || ''
+        firstName: sanitizedAddress.firstName,
+        lastName: sanitizedAddress.lastName,
+        email: sanitizedAddress.email,
+        phone: sanitizedAddress.phone,
+        address: sanitizedAddress.address,
+        city: sanitizedAddress.city,
+        county: sanitizedAddress.county,
+        country: sanitizedAddress.country || 'Kenya',
+        postalCode: sanitizedAddress.postalCode || ''
       },
       subtotal: finalSubtotal,
       shippingCost: finalShippingCost,
+      tax: finalTax,
       total: finalTotal,
       paymentMethod: paymentMethod,
       paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
       status: 'confirmed',
-      notes: notes || ''
+      notes: notes || '',
+      trackingHistory: [
+        {
+          status: 'confirmed',
+          message: 'Order received and confirmed',
+          timestamp: new Date()
+        }
+      ]
     });
 
     console.log('📝 Saving order to database...');
@@ -155,18 +212,18 @@ const createOrder = asyncHandler(async (req, res) => {
     // ✅ FIXED: Update product stock - SIMPLIFIED VERSION
     for (const update of stockUpdates) {
       const newStock = update.currentStock - update.quantity;
-      
+
       await Product.findByIdAndUpdate(
         update.productId,
-        { 
+        {
           $inc: { 'inventory.stock': -update.quantity },
-          $set: { 
+          $set: {
             inStock: newStock > 0
           }
         },
         { session }
       );
-      
+
       console.log(`📦 Updated stock for product ${update.productId}: ${update.currentStock} -> ${newStock}`);
     }
 
@@ -186,12 +243,40 @@ const createOrder = asyncHandler(async (req, res) => {
       data: populatedOrder
     });
 
+    // Send order confirmation email (asynchronous, don't await/return)
+    try {
+      const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/account/orders/${savedOrder._id}`;
+
+      const emailData = {
+        order: {
+          ...savedOrder.toObject(),
+          formattedDate: new Date(savedOrder.createdAt).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }),
+          items: orderItems,
+          shippingAddress: savedOrder.shippingAddress
+        },
+        dashboardUrl
+      };
+
+      sendEmail({
+        to: savedOrder.shippingAddress.email,
+        subject: `Order Confirmation - #${savedOrder.orderNumber}`,
+        templateName: 'orderConfirmation',
+        data: emailData
+      });
+    } catch (emailError) {
+      console.error('📧 Background email sending error:', emailError);
+    }
+
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    
+
     console.error('❌ Order creation error:', error);
-    
+
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -200,7 +285,7 @@ const createOrder = asyncHandler(async (req, res) => {
         errors: errors
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to create order',
@@ -214,8 +299,12 @@ const createOrder = asyncHandler(async (req, res) => {
 // @access  Private
 const getUserOrders = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  const { page = 1, limit = 10 } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
+
+  console.log('📦 Fetching orders for user:', userId);
+  console.log('📄 Pagination:', { page, limit, skip });
 
   try {
     const [orders, total] = await Promise.all([
@@ -223,7 +312,7 @@ const getUserOrders = asyncHandler(async (req, res) => {
         .populate('items.product', 'name images')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(limit),
       Order.countDocuments({ user: userId })
     ]);
 
@@ -255,12 +344,12 @@ const getUserOrders = asyncHandler(async (req, res) => {
 // @route   GET /api/orders/:id
 // @access  Private
 const getOrderById = asyncHandler(async (req, res) => {
-     try {
+  try {
     console.log('🔍 Fetching order:', req.params.id);
-    console.log('👤 Current user:', { 
-      id: req.user._id, 
+    console.log('👤 Current user:', {
+      id: req.user._id,
       role: req.user.role, // or userType
-      email: req.user.email 
+      email: req.user.email
     });
     // Validate order ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -299,7 +388,7 @@ const getOrderById = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Get order by ID error:', error);
-    
+
     // More specific error handling
     if (error.name === 'CastError') {
       return res.status(400).json({
@@ -307,7 +396,7 @@ const getOrderById = asyncHandler(async (req, res) => {
         message: 'Invalid order ID'
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Failed to fetch order',
@@ -320,13 +409,13 @@ const getOrderById = asyncHandler(async (req, res) => {
 // @route   GET /api/orders
 // @access  Private/Admin
 const getOrders = asyncHandler(async (req, res) => {
-  const { 
-    page = 1, 
-    limit = 10, 
-    status, 
+  const {
+    page = 1,
+    limit = 10,
+    status,
     search,
     startDate,
-    endDate 
+    endDate
   } = req.query;
 
   const skip = (page - 1) * limit;
@@ -387,16 +476,26 @@ const getOrders = asyncHandler(async (req, res) => {
 // @route   PUT /api/orders/:id/status
 // @access  Private/Admin
 const updateOrderStatus = asyncHandler(async (req, res) => {
-  const { status, trackingNumber, adminNotes } = req.body;
+  const { status, trackingNumber, adminNotes, location, message } = req.body;
 
   try {
     const order = await Order.findByIdAndUpdate(
       req.params.id,
-      { 
-        status,
-        ...(trackingNumber && { trackingNumber }),
-        ...(adminNotes && { adminNotes }),
-        statusUpdatedAt: new Date()
+      {
+        $set: {
+          status,
+          ...(trackingNumber && { trackingNumber }),
+          ...(adminNotes && { adminNotes }),
+          statusUpdatedAt: new Date()
+        },
+        $push: {
+          trackingHistory: {
+            status,
+            location: location || '',
+            message: message || `Order status updated to ${status}${trackingNumber ? '. Tracking Number: ' + trackingNumber : ''}`,
+            timestamp: new Date()
+          }
+        }
       },
       { new: true, runValidators: true }
     ).populate('user', 'firstName lastName email');
@@ -440,9 +539,9 @@ const calculateShippingCost = asyncHandler(async (req, res) => {
 
     res.json({
       success: true,
-      data: { 
-        shippingCost, 
-        currency: 'KES' 
+      data: {
+        shippingCost,
+        currency: 'KES'
       }
     });
   } catch (error) {
@@ -454,11 +553,37 @@ const calculateShippingCost = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Generate PDF invoice for order
+// @route   GET /api/orders/:id/invoice
+// @access  Private
+const generateOrderInvoice = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id)
+    .populate('user', 'firstName lastName email');
+
+  if (!order) {
+    res.status(404);
+    throw new Error('Order not found');
+  }
+
+  // Check if user owns the order or is admin
+  if (order.user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    res.status(403);
+    throw new Error('Not authorized to access this invoice');
+  }
+
+  // Import invoice generator
+  const { default: generateInvoice } = await import('../utils/invoiceGenerator.js');
+
+  // Generate and stream PDF
+  generateInvoice(order, res);
+});
+
 export {
   createOrder,
   getUserOrders,
   getOrderById,
   getOrders,
   updateOrderStatus,
-  calculateShippingCost
+  calculateShippingCost,
+  generateOrderInvoice
 };
