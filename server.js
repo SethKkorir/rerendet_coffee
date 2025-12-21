@@ -18,6 +18,12 @@ import adminRoutes from './routes/adminRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
+import reviewRoutes from './routes/reviewRoutes.js';
+
+// Security imports
+import mongoSanitize from 'express-mongo-sanitize';
+import hpp from 'hpp';
+import xss from 'xss-clean';
 
 // Import models
 import Product from './models/Product.js';
@@ -156,6 +162,15 @@ const adminLoginLimiter = rateLimit({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Data sanitization against NoSQL query injection
+app.use(mongoSanitize());
+
+// Data sanitization against XSS
+app.use(xss());
+
+// Prevent HTTP Parameter Pollution
+app.use(hpp());
+
 // Add security headers manually for Google OAuth compatibility
 app.use((req, res, next) => {
   // Remove conflicting headers that might block Google OAuth
@@ -193,6 +208,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/settings', settingsRoutes);
 app.use('/api/settings', settingsRoutes); // Public settings endpoint
+app.use('/api/reviews', reviewRoutes);
 
 // ==================== DEVELOPMENT ONLY ROUTES ====================
 
@@ -306,16 +322,6 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
-});
-
-// Debug route for orders
-app.get('/api/dev/orders-test', async (req, res) => {
-  try {
-    const orders = await mongoose.model('Order').find().limit(1).lean();
-    res.json({ success: true, count: orders.length, sample: orders[0] });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
 });
 
 // ==================== ERROR HANDLING ====================

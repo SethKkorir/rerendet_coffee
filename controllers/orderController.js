@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeObject, sanitizeEmail, sanitizePhone, sanitizeAmount } from '../utils/inputSanitizer.js';
 import { sendEmail } from '../utils/emailService.js';
+import { sendLowStockAlert } from '../utils/adminNotificationService.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -213,7 +214,7 @@ const createOrder = asyncHandler(async (req, res) => {
     for (const update of stockUpdates) {
       const newStock = update.currentStock - update.quantity;
 
-      await Product.findByIdAndUpdate(
+      const updatedProduct = await Product.findByIdAndUpdate(
         update.productId,
         {
           $inc: { 'inventory.stock': -update.quantity },
@@ -221,10 +222,15 @@ const createOrder = asyncHandler(async (req, res) => {
             inStock: newStock > 0
           }
         },
-        { session }
+        { session, new: true } // Use new: true to get updated version for the alert
       );
 
       console.log(`📦 Updated stock for product ${update.productId}: ${update.currentStock} -> ${newStock}`);
+
+      // SEND LOW STOCK ALERT
+      if (updatedProduct && updatedProduct.inventory.stock <= updatedProduct.inventory.lowStockAlert) {
+        sendLowStockAlert(updatedProduct).catch(err => console.error('Failed to send low stock email:', err));
+      }
     }
 
     await session.commitTransaction();
@@ -298,13 +304,28 @@ const createOrder = asyncHandler(async (req, res) => {
 // @route   GET /api/orders/my
 // @access  Private
 const getUserOrders = asyncHandler(async (req, res) => {
+  if (!req.user || !req.user._id) {
+    console.error('❌ getUserOrders: req.user is missing or incomplete', {
+      hasUser: !!req.user,
+      userId: req.user?._id
+    });
+    return res.status(401).json({
+      success: false,
+      message: 'Not authorized, user context missing'
+    });
+  }
+
   const userId = req.user._id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  console.log('📦 Fetching orders for user:', userId);
-  console.log('📄 Pagination:', { page, limit, skip });
+  console.log('📦 getUserOrders: Fetching orders:', {
+    userId,
+    page,
+    limit,
+    skip
+  });
 
   try {
     const [orders, total] = await Promise.all([
@@ -315,6 +336,8 @@ const getUserOrders = asyncHandler(async (req, res) => {
         .limit(limit),
       Order.countDocuments({ user: userId })
     ]);
+
+    console.log(`✅ getUserOrders: Found ${orders.length} orders (Total: ${total})`);
 
     res.json({
       success: true,

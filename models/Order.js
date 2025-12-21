@@ -79,7 +79,7 @@ const orderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
+    enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'],
     default: 'pending'
   },
   paymentStatus: {
@@ -110,6 +110,18 @@ const orderSchema = new mongoose.Schema({
   ],
   notes: {
     type: String
+  },
+  isReturnRequested: {
+    type: Boolean,
+    default: false
+  },
+  returnReason: {
+    type: String
+  },
+  returnStatus: {
+    type: String,
+    enum: ['none', 'requested', 'approved', 'rejected', 'completed'],
+    default: 'none'
   }
 }, {
   timestamps: true

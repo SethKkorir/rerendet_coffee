@@ -20,6 +20,16 @@ router.post('/shipping-cost', calculateShippingCost);
 // Protected routes
 router.use(protect);
 
+// Logger for debugging
+router.use((req, res, next) => {
+  console.log(`📡 [OrderRoute] ${req.method} ${req.url}`, {
+    user: req.user?.email,
+    query: req.query,
+    params: req.params
+  });
+  next();
+});
+
 // Customer routes - Apply rate limiting to checkout
 router.post('/', checkoutLimiter, createOrder);
 router.get('/my', getUserOrders);
