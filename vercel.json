@@ -19,6 +19,22 @@
             "dest": "/server.js"
         },
         {
+            "src": "/",
+            "dest": "/client/index.html"
+        },
+        {
+            "src": "/static/(.*)",
+            "dest": "/client/static/$1"
+        },
+        {
+            "src": "/favicon.ico",
+            "dest": "/client/favicon.ico"
+        },
+        {
+            "src": "/manifest.json",
+            "dest": "/client/manifest.json"
+        },
+        {
             "src": "/(.*)",
             "dest": "/client/$1"
         },
