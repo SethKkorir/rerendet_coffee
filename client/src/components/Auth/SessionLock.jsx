@@ -25,8 +25,6 @@ const SessionLock = () => {
         return () => clearInterval(timer);
     }, []);
 
-    // If not locked, don't render anything
-    if (!isLocked) return null;
 
     const handleUnlock = async (e) => {
         e.preventDefault();
@@ -96,10 +94,13 @@ const SessionLock = () => {
                     }
                 });
 
-                window.google.accounts.id.renderButton(
-                    document.getElementById("googleLockBtn"),
-                    { theme: "outline", size: "large", text: "signin_with" }
-                );
+                const btn = document.getElementById("googleLockBtn");
+                if (btn) {
+                    window.google.accounts.id.renderButton(
+                        btn,
+                        { theme: "outline", size: "large", text: "signin_with" }
+                    );
+                }
             } catch (err) {
                 console.error("Google script error", err);
             }
@@ -110,6 +111,9 @@ const SessionLock = () => {
         logout();
         unlockSession(); // Reset lock state as we are logging out
     };
+
+    // If not locked, don't render anything
+    if (!isLocked) return null;
 
     return (
         <div className="session-lock-overlay">

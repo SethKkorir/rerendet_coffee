@@ -285,15 +285,19 @@ app.use((err, req, res, next) => {
 // ==================== SERVER START ====================
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  // Start background jobs
-  startCronJobs();
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    // Start background jobs
+    startCronJobs();
 
-  console.log(`
-🚀 Server running on port ${PORT}
-📊 Environment: ${process.env.NODE_ENV || 'development'}
-🔗 API: http://localhost:${PORT}/api
-❤️  Health: http://localhost:${PORT}/api/health
-🔒 Trust proxy: ${app.get('trust proxy')}
-  `);
-});
+    console.log(`
+  🚀 Server running on port ${PORT}
+  📊 Environment: ${process.env.NODE_ENV || 'development'}
+  🔗 API: http://localhost:${PORT}/api
+  ❤️  Health: http://localhost:${PORT}/api/health
+  🔒 Trust proxy: ${app.get('trust proxy')}
+    `);
+  });
+}
+
+export default app;
