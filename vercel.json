@@ -1,37 +1,12 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "server.js",
-            "use": "@vercel/node"
-        },
-        {
-            "src": "client/package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "build"
-            }
-        }
-    ],
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "/server.js"
+            "destination": "/api/index.js"
         },
         {
-            "source": "/static/(.*)",
-            "destination": "/client/static/$1"
-        },
-        {
-            "source": "/favicon.ico",
-            "destination": "/client/favicon.ico"
-        },
-        {
-            "source": "/manifest.json",
-            "destination": "/client/manifest.json"
-        },
-        {
-            "source": "/((?!api/).*)",
+            "source": "/((?!api/.*).*)",
             "destination": "/client/index.html"
         }
     ]
