@@ -18,6 +18,7 @@ import AdminLayout from './components/Admin/AdminLayout';
 import AdminRoute from './components/Admin/AdminRoute';
 import Alert from './components/Alert/Alert';
 import Notification from './components/Notification/Notification';
+import SessionLock from './components/Auth/SessionLock';
 import Dashboard from './components/Admin/Dashboard';
 import OrdersManagement from './components/Admin/OrdersManagement';
 import ProductsManagement from './components/Admin/ProductsManagement';
@@ -127,9 +128,9 @@ function App() {
         </div>
       )}
 
-      {/* Global Notifications */}
       <Alert />
       <Notification />
+      <SessionLock />
 
       {/* Don't show navbar on admin routes */}
       {!isAdminRoute && <Navbar />}

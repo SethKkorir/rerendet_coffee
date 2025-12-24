@@ -65,6 +65,82 @@ export function AppProvider({ children }) {
   const [publicSettings, setPublicSettings] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
 
+  // ==================== IDLE SESSION MANAGEMENT ====================
+  const [isLocked, setIsLocked] = useState(false);
+  const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
+
+  const checkForInactivity = useCallback(() => {
+    // Skip if already locked or not logged in
+    if (!user || !token || isLocked) return;
+
+    const lastActivityStr = localStorage.getItem('lastActivity');
+    const lastActivity = lastActivityStr ? parseInt(lastActivityStr, 10) : Date.now();
+    const now = Date.now();
+
+    if (now - lastActivity > IDLE_TIMEOUT) {
+      console.log('🔒 Session timed out due to inactivity');
+      setIsLocked(true);
+      // Optional: Prepare UI for locked state
+    }
+  }, [user, token, isLocked]);
+
+  const updateActivity = useCallback(() => {
+    // Only update if not locked
+    if (!isLocked) {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    }
+  }, [isLocked]);
+
+  // Unlock session
+  const unlockSession = useCallback(() => {
+    setIsLocked(false);
+    updateActivity();
+    localStorage.setItem('lastActivity', Date.now().toString());
+  }, [updateActivity]);
+
+  // Effect to track activity
+  useEffect(() => {
+    // Events to track
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+
+    // Throttle the updateActivity call to avoid performance hit
+    let timeoutId;
+    const handleActivity = () => {
+      if (!timeoutId) {
+        timeoutId = setTimeout(() => {
+          updateActivity();
+          timeoutId = null;
+        }, 1000); // Update max once per second
+      }
+    };
+
+    if (user && !isLocked) {
+      events.forEach(event => window.addEventListener(event, handleActivity));
+
+      // Initialize if not set
+      if (!localStorage.getItem('lastActivity')) {
+        updateActivity();
+      }
+    }
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, handleActivity));
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [user, isLocked, updateActivity]);
+
+  // Effect to check for inactivity periodically
+  useEffect(() => {
+    if (!user || isLocked) return;
+
+    const interval = setInterval(checkForInactivity, 60000); // Check every minute
+
+    // Initial check on mount/user change
+    checkForInactivity();
+
+    return () => clearInterval(interval);
+  }, [user, isLocked, checkForInactivity]);
+
   // ==================== NOTIFICATION SYSTEM ====================
 
   // Add a new notification
@@ -1031,7 +1107,8 @@ export function AppProvider({ children }) {
     addToCart, removeFromCart, updateCartQuantity, clearCart, getCartTotal, getCartItemCount,
     openCart, closeCart, toggleCart, setMobileMenuOpenState,
     updateUserProfile, changeUserPassword, deleteAccount, fetchUserOrders,
-    orderRefreshTrigger, refreshOrders
+    orderRefreshTrigger, refreshOrders,
+    isLocked, unlockSession
   ]);
 
   return (
