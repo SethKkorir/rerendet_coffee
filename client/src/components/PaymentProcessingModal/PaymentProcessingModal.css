@@ -1,0 +1,282 @@
+/* PaymentProcessingModal.css */
+.payment-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.payment-modal {
+    background: white;
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.payment-modal-content {
+    text-align: center;
+}
+
+/* Icon Container */
+.payment-icon-container {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+}
+
+.payment-icon-container.processing {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+
+.payment-icon-container.success {
+    background: #d1fae5;
+    color: #10b981;
+}
+
+.payment-icon-container.failed {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+/* Spinner Animation */
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.success-icon {
+    animation: scaleIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0);
+    }
+
+    to {
+        transform: scale(1);
+    }
+}
+
+.error-icon {
+    animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-10px);
+    }
+
+    75% {
+        transform: translateX(10px);
+    }
+}
+
+/* Payment Method Badge */
+.payment-method-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f1f5f9;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 1rem;
+}
+
+.payment-method-badge svg {
+    font-size: 1rem;
+}
+
+/* Amount */
+.payment-amount {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin-bottom: 1rem;
+}
+
+/* Message */
+.payment-message {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.payment-message.processing {
+    color: #0284c7;
+}
+
+.payment-message.success {
+    color: #10b981;
+}
+
+.payment-message.failed {
+    color: #ef4444;
+}
+
+/* Transaction ID */
+.transaction-id {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+}
+
+.transaction-id .label {
+    display: block;
+    color: #64748b;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.transaction-id .value {
+    display: block;
+    color: #1a202c;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.5px;
+}
+
+/* Actions */
+.payment-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.btn-cancel,
+.btn-retry {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.btn-cancel {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.btn-cancel:hover {
+    background: #e2e8f0;
+}
+
+.btn-retry {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-retry:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Instructions */
+.payment-instructions {
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.payment-instructions p {
+    margin: 0.5rem 0;
+    font-size: 0.875rem;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.payment-instructions p:first-child {
+    margin-top: 0;
+}
+
+.payment-instructions p:last-child {
+    margin-bottom: 0;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .payment-modal {
+        padding: 2rem 1.5rem;
+        width: 95%;
+    }
+
+    .payment-amount {
+        font-size: 1.75rem;
+    }
+
+    .payment-icon-container {
+        width: 70px;
+        height: 70px;
+        font-size: 2rem;
+    }
+}

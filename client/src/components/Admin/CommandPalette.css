@@ -1,0 +1,140 @@
+.command-palette-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 15vh;
+}
+
+.command-palette {
+    width: 600px;
+    max-width: 90vw;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.cp-header {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.cp-icon {
+    color: #94a3b8;
+    font-size: 20px;
+    margin-right: 12px;
+}
+
+.cp-header input {
+    flex: 1;
+    border: none;
+    font-size: 18px;
+    color: #1e293b;
+    outline: none;
+    background: transparent;
+}
+
+.cp-header input::placeholder {
+    color: #cbd5e1;
+}
+
+.cp-close {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.cp-body {
+    padding: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.cp-section {
+    margin-bottom: 8px;
+}
+
+.cp-label {
+    display: block;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cp-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    font-size: 15px;
+    color: #334155;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.1s;
+}
+
+.cp-item:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.cp-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+    color: #64748b;
+}
+
+.cp-footer {
+    padding: 8px 16px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.key-hint {
+    font-size: 12px;
+    color: #94a3b8;
+    background: #e2e8f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}

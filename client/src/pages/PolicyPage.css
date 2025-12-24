@@ -1,0 +1,56 @@
+/* src/pages/PolicyPage.css */
+.policy-page {
+    padding: 120px 0 80px;
+    /* Account for fixed navbar */
+    background-color: #f8fafc;
+    min-height: 80vh;
+}
+
+.policy-header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.policy-header h1 {
+    font-size: 2.5rem;
+    color: #1f2937;
+    margin-bottom: 10px;
+    position: relative;
+    display: inline-block;
+}
+
+.policy-header h1::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background-color: #D4AF37;
+}
+
+.policy-date {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-top: 20px;
+}
+
+.policy-content {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    color: #374151;
+    line-height: 1.8;
+    font-size: 1.05rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.policy-empty {
+    text-align: center;
+    color: #9ca3af;
+    font-style: italic;
+    padding: 40px;
+}

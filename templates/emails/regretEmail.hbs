@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: #1a1a1a;
+            padding: 40px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .header h1 {
+            color: #d4af37;
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 1px;
+        }
+
+        .content {
+            padding: 40px;
+            border: 1px solid #eee;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            background: #ffffff;
+        }
+
+        .greeting {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            color: #555;
+            margin-bottom: 25px;
+        }
+
+        .quote-box {
+            padding: 25px;
+            background: #fafafa;
+            border-radius: 12px;
+            margin: 30px 0;
+            border-left: 4px solid #d4af37;
+        }
+
+        .quote {
+            margin: 0;
+            font-style: italic;
+            color: #444;
+            font-size: 16px;
+        }
+
+        .action-box {
+            text-align: center;
+            margin-top: 35px;
+        }
+
+        .btn {
+            background: #d4af37;
+            color: #1a1a1a;
+            padding: 14px 28px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+
+        .footer {
+            padding: 30px;
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid #eee;
+            margin: 30px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Rerendet Coffee</h1>
+        </div>
+        <div class="content">
+            <div class="greeting">We're Sad to See You Go, {{firstName}}</div>
+            <p class="message">Your Rerendet Coffee account has been successfully deleted as per your request.</p>
+            <p class="message">We're truly sorry to see you leave our coffee community. It was a pleasure serving you,
+                and we value the time you spent with us.</p>
+
+            <div class="quote-box">
+                <p class="quote">"A good cup of coffee is always waiting for you should you decide to return."</p>
+            </div>
+
+            <p class="message">If there was anything we could have done better, or if you'd like to share your reason
+                for leaving, we'd love to hear your feedback.</p>
+
+            <div class="action-box">
+                <a href="{{frontendUrl}}" class="btn">Visit Our Shop</a>
+            </div>
+
+            <hr>
+            <p style="font-size: 12px; color: #999; text-align: center;">This is an automated message to confirm your
+                account deletion. Your data has been removed from our active systems.</p>
+        </div>
+        <div class="footer">
+            &copy; 2025 Rerendet Coffee. All rights reserved.
+        </div>
+    </div>
+</body>
+
+</html>

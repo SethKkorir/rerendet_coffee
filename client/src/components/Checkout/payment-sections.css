@@ -1,0 +1,147 @@
+/* Payment Sections Premium CSS */
+/* Inherits variables from Checkout.css */
+
+.payment-details-section {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: #FAFAF9;
+    /* Warm grey/white */
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Payment Notes */
+.payment-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #ECFDF5;
+    border: 1px solid #D1FAE5;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    color: #065F46;
+    line-height: 1.5;
+}
+
+.payment-note .note-icon {
+    color: #10B981;
+    font-size: 1.1rem;
+    margin-top: 0.1rem;
+    flex-shrink: 0;
+}
+
+/* Card Section */
+.card-section .card-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+/* COD Section */
+.cod-section {
+    background: #FFFBEB;
+    border-color: #FDE68A;
+}
+
+.cod-notice {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: white;
+    border: 1px solid #FCD34D;
+    border-radius: var(--radius-md);
+    margin-bottom: 1.25rem;
+}
+
+.cod-notice-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.cod-notice .info-icon {
+    font-size: 1.5rem;
+    color: #F59E0B;
+}
+
+.notice-content h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #92400E;
+}
+
+.notice-content p {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.9rem;
+    color: #B45309;
+}
+
+.cod-limit-warning {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: var(--radius-md);
+    margin-bottom: 1.25rem;
+    color: #991B1B;
+    font-size: 0.9rem;
+}
+
+.cod-confirmation {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    padding: 1rem;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    transition: all 0.2s ease;
+}
+
+.cod-confirmation:hover {
+    border-color: var(--primary-color);
+    background: #FAFAF9;
+}
+
+.cod-confirmation input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: var(--primary-color);
+}
+
+.cod-confirmation span {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* Custom Checkbox Style (Optional, browser default usually fine with accent-color) */
+
+/* Responsive */
+@media (max-width: 640px) {
+    .card-section .card-row {
+        grid-template-columns: 1fr;
+    }
+}
