@@ -16,7 +16,7 @@ const CoffeeShop = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/products?category=coffee-beans&inStock=true');
+        const response = await fetch('/api/products?category=coffee-beans');
 
         if (!response.ok) {
           throw new Error('Failed to fetch products');
