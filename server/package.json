@@ -49,6 +49,7 @@
     "pdfkit-table": "^0.1.99",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0",
+    "stripe": "^20.1.0",
     "uuid": "^13.0.0",
     "validator": "^13.9.0",
     "xss-clean": "^0.1.4"

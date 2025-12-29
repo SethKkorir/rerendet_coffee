@@ -1,25 +1,47 @@
 // routes/paymentRoutes.js
 import express from 'express';
 import {
-  processMpesaPayment,
-  processCardPayment,
   processCashOnDelivery,
   processAirtelPayment,
-  getAirtelPaymentStatus
+  getAirtelPaymentStatus,
+  // processMpesaPayment, // Legacy mock, removing
+  // processCardPayment,  // Legacy mock, removing
 } from '../controllers/paymentController.js';
+
+import {
+  initiateMpesaPayment,
+  mpesaCallback,
+  checkMpesaPaymentStatus
+} from '../controllers/mpesaController.js';
+
+import {
+  createPaymentIntent,
+  handleStripeWebhook
+} from '../controllers/stripeController.js';
+
+import PaymentMethod from '../models/PaymentMethod.js';
 
 const router = express.Router();
 
-// Process payments
-router.post('/mpesa', processMpesaPayment);
-router.post('/card', processCardPayment);
+// --- MPESA Routes ---
+router.post('/mpesa/stk-push', initiateMpesaPayment);
+router.post('/mpesa-callback', mpesaCallback);
+router.get('/mpesa/status/:paymentId', checkMpesaPaymentStatus);
+
+
+// --- Stripe Routes ---
+router.post('/stripe/create-payment-intent', createPaymentIntent);
+router.post('/stripe/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
+
+
+// --- Other Payment Methods ---
 router.post('/cash-on-delivery', processCashOnDelivery);
 
-// Airtel Money
+// Airtel Money (keeping existing logic for now)
 router.post('/airtel/request', processAirtelPayment);
 router.get('/airtel/status/:paymentId', getAirtelPaymentStatus);
 
-// Get payment methods for user
+// --- Payment Methods Management ---
 router.get('/methods/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -41,7 +63,6 @@ router.get('/methods/:userId', async (req, res) => {
   }
 });
 
-// Set default payment method
 router.patch('/methods/:methodId/set-default', async (req, res) => {
   try {
     const { methodId } = req.params;

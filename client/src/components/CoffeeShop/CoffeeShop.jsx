@@ -1,11 +1,13 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { AppContext } from '../../context/AppContext';
+import { useLocation } from '../../context/LocationContext';
 import { FaEye, FaTimes, FaShoppingBag } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import './CoffeeShop.css';
 
 const CoffeeShop = () => {
   const { addToCart, showAlert } = useContext(AppContext);
+  const { formatPrice } = useLocation();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(null);
@@ -225,7 +227,7 @@ const CoffeeShop = () => {
 
                   <div className="coffee-footer-row">
                     <div className="coffee-price-large">
-                      <small>KES</small> {product.price.toLocaleString()}
+                      {formatPrice(product.price)}
                     </div>
                     <button
                       className={`btn-add-large ${!productInStock || addingToCart === product.variationKey ? 'disabled' : ''}`}
@@ -269,7 +271,7 @@ const CoffeeShop = () => {
                     <span className="modal-badge">{selectedProduct.roastLevel} Roast</span>
                     <h2>{selectedProduct.name}</h2>
                     <p className="modal-origin">{selectedProduct.origin}</p>
-                    <div className="modal-price">KES {selectedProduct.price.toLocaleString()}</div>
+                    <div className="modal-price">{formatPrice(selectedProduct.price)}</div>
                     <p className="modal-desc">{selectedProduct.description}</p>
 
                     <div className="modal-flavors">

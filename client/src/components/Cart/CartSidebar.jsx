@@ -2,6 +2,7 @@
 import React, { useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
+import { useLocation } from '../../context/LocationContext';
 import { FaTimes, FaArrowRight, FaTrash, FaPlus, FaMinus, FaShoppingBag } from 'react-icons/fa';
 import './CartSidebar.css';
 
@@ -16,6 +17,8 @@ function CartSidebar() {
     updateCartQuantity,
     showNotification
   } = useContext(AppContext);
+
+  const { formatPrice } = useLocation();
 
   const navigate = useNavigate();
 
@@ -183,7 +186,7 @@ function CartSidebar() {
                       <div className="cart-item-size">Size: {item.size}</div>
                     )}
 
-                    <div className="cart-item-price">KSh {item.price?.toLocaleString()}</div>
+                    <div className="cart-item-price">{formatPrice(item.price)}</div>
 
                     <div className="cart-item-controls">
                       <div className="quantity-control">
@@ -215,7 +218,7 @@ function CartSidebar() {
                     </div>
 
                     <div className="cart-item-total">
-                      KSh {(item.price * item.quantity)?.toLocaleString()}
+                      {formatPrice(item.price * item.quantity)}
                     </div>
                   </div>
                 </div>
@@ -230,7 +233,7 @@ function CartSidebar() {
             <div className="cart-total-simple">
               <div className="total-amount">
                 <span>Total:</span>
-                <span className="total-price">KSh {displayTotal.toLocaleString()}</span>
+                <span className="total-price">{formatPrice(displayTotal)}</span>
               </div>
               <div className="total-note">
                 Shipping & taxes calculated at checkout

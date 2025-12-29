@@ -1,7 +1,7 @@
 // controllers/mpesaController.js
 import axios from 'axios';
 import crypto from 'crypto';
-import Payment from '../models/Payment.js';
+import Payment from '../models/PaymentTransaction.js';
 import Order from '../models/Order.js';
 import asyncHandler from 'express-async-handler';
 
@@ -67,16 +67,6 @@ const initiateMpesaPayment = asyncHandler(async (req, res) => {
     throw new Error('Order not found');
   }
 
-  if (order.user._id.toString() !== req.user._id.toString()) {
-    res.status(403);
-    throw new Error('Not authorized to pay for this order');
-  }
-
-  if (order.isPaid) {
-    res.status(400);
-    throw new Error('Order is already paid');
-  }
-
   // Generate transaction reference
   const transactionRef = `RCD${order.orderNumber}${Date.now().toString().slice(-6)}`;
 
@@ -114,12 +104,16 @@ const initiateMpesaPayment = asyncHandler(async (req, res) => {
     // Create payment record
     const payment = await Payment.create({
       order: orderId,
-      user: req.user._id,
-      paymentMethod: 'mpesa',
+      provider: 'MPESA',
+      transactionId: transactionRef,
       amount: order.totalPrice,
-      status: 'pending',
-      mpesaPhoneNumber: formattedPhone,
-      referenceNumber: transactionRef
+      currency: 'KES',
+      status: 'PENDING',
+      metadata: {
+        user: req.user._id,
+        phoneNumber: formattedPhone,
+        checkoutRequestID: response.data.CheckoutRequestID
+      }
     });
 
     res.json({
@@ -138,12 +132,16 @@ const initiateMpesaPayment = asyncHandler(async (req, res) => {
     // Create failed payment record
     await Payment.create({
       order: orderId,
-      user: req.user._id,
-      paymentMethod: 'mpesa',
+      provider: 'MPESA',
+      transactionId: transactionRef,
       amount: order.totalPrice,
-      status: 'failed',
-      mpesaPhoneNumber: formattedPhone,
-      failureReason: error.response?.data?.errorMessage || 'M-Pesa payment initiation failed'
+      currency: 'KES',
+      status: 'FAILED',
+      metadata: {
+        user: req.user._id,
+        phoneNumber: formattedPhone,
+        failureReason: error.response?.data?.errorMessage || 'M-Pesa payment initiation failed'
+      }
     });
 
     res.status(500);
@@ -156,8 +154,6 @@ const initiateMpesaPayment = asyncHandler(async (req, res) => {
 // @access  Public (called by M-Pesa)
 const mpesaCallback = asyncHandler(async (req, res) => {
   const callbackData = req.body;
-
-  // console.log('M-Pesa Callback Received:', JSON.stringify(callbackData, null, 2));
 
   // Send immediate response to M-Pesa
   res.json({
@@ -181,36 +177,32 @@ const processMpesaCallback = async (callbackData) => {
       // Payment successful
       const metadataItems = callbackMetadata.Item;
 
-      let amount, mpesaReceiptNumber, transactionDate, phoneNumber;
+      let mpesaReceiptNumber, transactionDate;
 
       metadataItems.forEach(item => {
         switch (item.Name) {
-          case 'Amount':
-            amount = item.Value;
-            break;
           case 'MpesaReceiptNumber':
             mpesaReceiptNumber = item.Value;
             break;
           case 'TransactionDate':
             transactionDate = item.Value;
             break;
-          case 'PhoneNumber':
-            phoneNumber = item.Value;
-            break;
         }
       });
 
-      // Find payment by checkoutRequestID or other identifier
+      // Find payment by checkoutRequestID
       const payment = await Payment.findOne({
-        referenceNumber: callbackData.Body.stkCallback.MerchantRequestID
+        'metadata.checkoutRequestID': checkoutRequestID
       });
 
       if (payment) {
-        payment.status = 'completed';
-        payment.mpesaTransactionId = checkoutRequestID;
-        payment.mpesaReceiptNumber = mpesaReceiptNumber;
-        payment.paymentDate = new Date(transactionDate);
-        payment.callbackData = callbackData;
+        payment.status = 'SUCCESS';
+        payment.metadata = {
+          ...payment.metadata,
+          mpesaReceiptNumber,
+          transactionDate,
+          callbackData
+        };
         await payment.save();
 
         // Update order status
@@ -221,8 +213,7 @@ const processMpesaCallback = async (callbackData) => {
           paymentResult: {
             id: mpesaReceiptNumber,
             status: 'completed',
-            update_time: new Date().toISOString(),
-            phone_number: phoneNumber
+            update_time: new Date().toISOString()
           }
         });
 
@@ -231,13 +222,16 @@ const processMpesaCallback = async (callbackData) => {
     } else {
       // Payment failed
       const payment = await Payment.findOne({
-        referenceNumber: callbackData.Body.stkCallback.MerchantRequestID
+        'metadata.checkoutRequestID': checkoutRequestID
       });
 
       if (payment) {
-        payment.status = 'failed';
-        payment.failureReason = resultDesc;
-        payment.callbackData = callbackData;
+        payment.status = 'FAILED';
+        payment.metadata = {
+          ...payment.metadata,
+          failureReason: resultDesc,
+          callbackData
+        };
         await payment.save();
 
         console.log(`M-Pesa payment failed for order: ${payment.order}, Reason: ${resultDesc}`);
@@ -253,17 +247,11 @@ const processMpesaCallback = async (callbackData) => {
 // @access  Private
 const checkMpesaPaymentStatus = asyncHandler(async (req, res) => {
   const payment = await Payment.findById(req.params.paymentId)
-    .populate('order')
-    .populate('user', 'firstName lastName');
+    .populate('order');
 
   if (!payment) {
     res.status(404);
     throw new Error('Payment not found');
-  }
-
-  if (payment.user._id.toString() !== req.user._id.toString() && !req.user.isAdmin) {
-    res.status(403);
-    throw new Error('Not authorized to view this payment');
   }
 
   res.json({

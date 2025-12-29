@@ -4,133 +4,12 @@ import PaymentMethod from '../models/PaymentMethod.js';
 import sendEmail from '../utils/sendEmail.js';
 
 // Process M-Pesa payment
-export async function processMpesaPayment(req, res) {
-  try {
-    const { phone, amount, orderId, userId } = req.body;
-
-    // Validate phone number
-    if (!phone.startsWith('+254') || phone.length !== 13) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid phone number format. Use +254 format'
-      });
-    }
-
-    // Mock M-Pesa payment simulation
-    const mpesaResponse = await simulateMpesaSTKPush(phone, amount);
-
-    if (mpesaResponse.success) {
-      // Update order with payment details
-      const updatedOrder = await Order.findByIdAndUpdate(
-        orderId,
-        {
-          paymentStatus: 'paid',
-          transactionId: mpesaResponse.transactionId,
-          status: 'confirmed'
-        },
-        { new: true }
-      ).populate('user');
-
-      // Send order confirmation email
-      await sendOrderConfirmation(updatedOrder);
-
-      // Update user's payment method if needed
-      await updateUserPaymentMethod(userId, 'mpesa', phone);
-
-      res.json({
-        success: true,
-        message: 'M-Pesa payment initiated successfully',
-        data: {
-          transactionId: mpesaResponse.transactionId,
-          order: updatedOrder,
-          instructions: 'Check your phone to complete payment'
-        }
-      });
-    } else {
-      // Update order with failed payment status
-      await Order.findByIdAndUpdate(orderId, {
-        paymentStatus: 'failed'
-      });
-
-      res.status(400).json({
-        success: false,
-        message: 'M-Pesa payment failed',
-        error: mpesaResponse.error
-      });
-    }
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error processing M-Pesa payment',
-      error: error.message
-    });
-  }
-}
+// Process M-Pesa payment - MOVED TO mpesaController.js
+// export async function processMpesaPayment(req, res) { ... }
 
 // Process card payment
-export async function processCardPayment(req, res) {
-  try {
-    const { cardDetails, amount, orderId, userId } = req.body;
-
-    // Validate card details
-    if (!validateCardDetails(cardDetails)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid card details'
-      });
-    }
-
-    // Mock card payment processing
-    const paymentResult = await simulateCardPayment(cardDetails, amount);
-
-    if (paymentResult.success) {
-      // Update order with payment details
-      const updatedOrder = await Order.findByIdAndUpdate(
-        orderId,
-        {
-          paymentStatus: 'paid',
-          transactionId: paymentResult.transactionId,
-          status: 'confirmed'
-        },
-        { new: true }
-      ).populate('user');
-
-      // Send order confirmation email
-      await sendOrderConfirmation(updatedOrder);
-
-      // Save card payment method
-      await saveCardPaymentMethod(userId, cardDetails);
-
-      res.json({
-        success: true,
-        message: 'Card payment processed successfully',
-        data: {
-          transactionId: paymentResult.transactionId,
-          order: updatedOrder
-        }
-      });
-    } else {
-      // Update order with failed payment status
-      await Order.findByIdAndUpdate(orderId, {
-        paymentStatus: 'failed'
-      });
-
-      res.status(400).json({
-        success: false,
-        message: 'Card payment failed',
-        error: paymentResult.error
-      });
-    }
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error processing card payment',
-      error: error.message
-    });
-  }
-}
+// Process card payment - MOVED TO stripeController.js
+// export async function processCardPayment(req, res) { ... }
 
 // Process cash on delivery
 export async function processCashOnDelivery(req, res) {
@@ -433,8 +312,8 @@ function validateCardDetails(cardDetails) {
 }
 
 export default {
-  processMpesaPayment,
-  processCardPayment,
+  // processMpesaPayment,
+  // processCardPayment,
   processCashOnDelivery,
   processAirtelPayment,
   getAirtelPaymentStatus
